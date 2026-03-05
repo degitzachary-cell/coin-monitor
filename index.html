@@ -589,8 +589,8 @@ function calcMACD(closes, fast=12, slow=26, signal=9) {
 
 function calcVolSpike(volumes, lookback=20) {
   const out = new Array(volumes.length).fill(NaN);
-  for (let i = lookback - 1; i < volumes.length; i++) {
-    const avg = volumes.slice(i - lookback + 1, i + 1).reduce((a,b)=>a+b,0) / lookback;
+  for (let i = lookback; i < volumes.length; i++) {
+    const avg = volumes.slice(i - lookback, i).reduce((a,b)=>a+b,0) / lookback;
     out[i] = avg === 0 ? 1 : volumes[i] / avg;
   }
   return out;
@@ -629,13 +629,13 @@ function findFVGs(candles, price, lookback = 60) {
     // Bullish FVG: c3.low > c1.high — gap between c1 top and c3 bottom
     if (c3.low > c1.high) {
       const top = c3.low, bot = c1.high, mid = (top + bot) / 2;
-      const filled = price < bot; // price has traded back into or below gap
+      const filled = price < top; // price has entered the gap from above (touched top edge)
       bullish.push({ top, bot, mid, filled });
     }
     // Bearish FVG: c3.high < c1.low — gap between c1 bottom and c3 top
     if (c3.high < c1.low) {
       const top = c1.low, bot = c3.high, mid = (top + bot) / 2;
-      const filled = price > top; // price has traded back into or above gap
+      const filled = price > bot; // price has entered the gap from below (touched bottom edge)
       bearish.push({ top, bot, mid, filled });
     }
   }
@@ -693,16 +693,17 @@ function analyse(c1m, c5m, c15m) {
 
   const srsi1 = calcStochRSI(cl(c1m));
   const vspk1 = calcVolSpike(c1m.map(c=>c.volume));
-  const k1 = last(srsi1.k.filter(v=>!isNaN(v)));
-  const d1 = last(srsi1.d.filter(v=>!isNaN(v)));
-  const vs = last(vspk1.filter(v=>!isNaN(v)));
+  const k1  = last(srsi1.k.filter(v=>!isNaN(v)));
+  const k1p = prev(srsi1.k.filter(v=>!isNaN(v))) ?? NaN;
+  const d1  = last(srsi1.d.filter(v=>!isNaN(v)));
+  const vs  = last(vspk1.filter(v=>!isNaN(v)));
 
   const bb5   = calcBB(cl(c5m));
   const srsi5 = calcStochRSI(cl(c5m));
   const mac5  = calcMACD(cl(c5m));
   const k5  = last(srsi5.k.filter(v=>!isNaN(v)));
   const d5  = last(srsi5.d.filter(v=>!isNaN(v)));
-  const k5p = prev(srsi5.k.filter(v=>!isNaN(v)));
+  const k5p = prev(srsi5.k.filter(v=>!isNaN(v))) ?? NaN;
   const bbLo  = last(bb5.lower.filter(v=>!isNaN(v)));
   const bbMid = last(bb5.mid.filter(v=>!isNaN(v)));
   const bbHi  = last(bb5.upper.filter(v=>!isNaN(v)));
@@ -764,7 +765,7 @@ function analyse(c1m, c5m, c15m) {
   if (nearSupport) {
     longScore += 0.5; longItems.push([true,  `At session support $${SESSION_LEVELS.support1} ⚡`]);
   }
-  if (k1 <= k5p || k1 < 15) {
+  if ((k1 < k1p) || k1 < 15) {
     longScore += 0.25; longItems.push([true,  `Stoch RSI 1m cooling  [${k1.toFixed(1)}]`]);
   }
 
@@ -795,10 +796,15 @@ function analyse(c1m, c5m, c15m) {
   } else {
     shortItems.push([false, 'No rejection candle 1m — wait']);
   }
-  if (mh < 0 && mh < mhp) {
-    shortScore += 0.5; shortItems.push([true,  `MACD negative & falling  [${mh.toFixed(4)}]`]);
+  if (vs >= 2) {
+    shortScore += 0.5; shortItems.push([true,  `Volume spike ${vs.toFixed(1)}x — distribution`]);
   } else {
-    shortItems.push([false, `MACD hist: ${mh >= 0 ? '+' : ''}${mh.toFixed(4)}`]);
+    shortItems.push([false, `Volume ${vs.toFixed(1)}x avg  (need ≥ 2x)`]);
+  }
+  if (mh < mhp) {
+    shortScore += 0.25; shortItems.push([true,  `MACD hist falling  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
+  } else {
+    shortItems.push([false, `MACD hist rising  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
   }
   if (nearResistance || nearBreakout) {
     shortScore += 0.5; shortItems.push([true,  `At session resistance $${nearBreakout ? SESSION_LEVELS.breakout : SESSION_LEVELS.resistance1} ⚡`]);
