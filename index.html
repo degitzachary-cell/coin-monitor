@@ -349,7 +349,7 @@ body {
   </div>
 </div>
 
-<div id="loading"><div class="spinner"></div><div>Connecting to Bybit...</div></div>
+<div id="loading"><div class="spinner"></div></div>
 
 <div id="dashboard" class="hidden">
 
@@ -390,6 +390,19 @@ body {
       <span style="position:absolute; left:66.5%; transform:translateX(-50%); font-size:8px; color:rgba(0,255,136,0.5); letter-spacing:0.5px">LEAN</span>
       <span style="position:absolute; left:80%;   transform:translateX(-50%); font-size:8px; color:var(--green); letter-spacing:0.5px">STRONG</span>
     </div>
+  </div>
+
+  <!-- Scalpability Scale -->
+  <div class="card" style="margin-bottom:10px; padding:14px 16px">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+      <span style="font-size:9px; letter-spacing:2px; color:var(--muted2); text-transform:uppercase; font-weight:700">Scalpability</span>
+      <span id="scalpScore" style="font-size:30px; font-weight:800; color:var(--cyan); letter-spacing:-1px; line-height:1">—</span>
+      <span id="scalpLabel" style="font-size:10px; letter-spacing:2px; color:var(--muted2); text-transform:uppercase; font-weight:700">—</span>
+    </div>
+    <div style="position:relative; height:7px; border-radius:4px; background:var(--border); margin-bottom:12px; overflow:hidden">
+      <div id="scalpBar" style="height:100%; width:0%; border-radius:4px; background:var(--cyan); transition:width 0.6s cubic-bezier(.4,0,.2,1);"></div>
+    </div>
+    <div id="scalpReasons" style="display:flex; flex-direction:column; gap:5px;"></div>
   </div>
 
   <!-- Session levels -->
@@ -835,11 +848,19 @@ function analyse(c1m, c5m, c15m) {
   const { bFVG, sFVG } = findFVGs(c15m, price);
   const { bOB,  sOB  } = findOBs(c15m,  price);
 
+  // Candle body quality: avg body/range ratio over last 8 1m bars (0=all wicks, 1=all body)
+  const recentBars = c1m.slice(-8);
+  const bodyQuality = recentBars.reduce((sum, c) => {
+    const body = Math.abs(c.close - c.open);
+    const range = c.high - c.low;
+    return sum + (range > 0 ? body / range : 0.5);
+  }, 0) / recentBars.length;
+
   return {
     price, trend15, bbLo, bbMid, bbHi, k1, d1, k5, d5, vs,
     macd: ml, macdSig: ms, macdHist: mh,
     longScore, longItems, shortScore, shortItems, redFlags,
-    bFVG, sFVG, bOB, sOB,
+    bFVG, sFVG, bOB, sOB, bodyQuality,
   };
 }
 
@@ -942,6 +963,54 @@ function render(sig, supports, resistances, ticker) {
   document.getElementById('biasNeedle').style.boxShadow  = `0 0 8px ${biasColor}`;
   document.getElementById('biasLabel').style.color = biasColor;
   document.getElementById('biasLabel').textContent = biasText;
+
+  // ── SCALPABILITY SCORE ────────────────────────────────────────────────────────
+  // 1. BB width volatility (0-25): sweet spot 0.5-2%
+  const bbWidthPct = (sig.bbHi - sig.bbLo) / sig.bbMid * 100;
+  let bbSc;
+  if      (bbWidthPct < 0.3) bbSc = bbWidthPct / 0.3 * 10;
+  else if (bbWidthPct < 0.8) bbSc = 10 + (bbWidthPct - 0.3) / 0.5 * 15;
+  else if (bbWidthPct < 2.0) bbSc = 25;
+  else if (bbWidthPct < 4.0) bbSc = 25 - (bbWidthPct - 2.0) / 2.0 * 10;
+  else                       bbSc = 15;
+
+  // 2. Volume relative to 20-bar avg (0-25): 2x = full score
+  const volSc = Math.min(25, Math.max(0, (sig.vs - 0.5) / 1.5 * 25));
+
+  // 3. Candle body quality (0-25): clean directional bodies vs wicks
+  const candleSc = sig.bodyQuality * 25;
+
+  // 4. Signal readiness (0-15): best score proximity to fire threshold
+  const bestSig = Math.max(sig.longScore, sig.shortScore);
+  const readySc = (bestSig / 4) * 15;
+
+  // 5. Momentum clarity (0-10): Stoch RSI 5m distance from neutral 50
+  const momSc = Math.abs(sig.k5 - 50) / 50 * 10;
+
+  const scalpTotal = Math.round(bbSc + volSc + candleSc + readySc + momSc);
+  const scalpColor = scalpTotal >= 75 ? 'var(--green)' : scalpTotal >= 55 ? 'var(--cyan)' : scalpTotal >= 30 ? 'var(--yellow)' : 'var(--red)';
+  const scalpLabel = scalpTotal >= 75 ? 'PRIME' : scalpTotal >= 55 ? 'GOOD' : scalpTotal >= 30 ? 'MODERATE' : 'CHOPPY';
+
+  const scalpReasons = [
+    [bbSc >= 20,    `BB width ${bbWidthPct.toFixed(2)}% — ${bbWidthPct < 0.3 ? 'squeeze, no range' : bbWidthPct > 3 ? 'extreme volatility' : 'healthy range'}`,         Math.round(bbSc),    25],
+    [volSc >= 15,   `Volume ${sig.vs.toFixed(1)}x avg — ${sig.vs >= 1.5 ? 'strong liquidity' : 'below average'}`,                                                         Math.round(volSc),   25],
+    [candleSc >= 15,`Candle bodies ${Math.round(sig.bodyQuality*100)}% — ${sig.bodyQuality >= 0.6 ? 'directional' : sig.bodyQuality >= 0.35 ? 'mixed' : 'wicky/choppy'}`, Math.round(candleSc),25],
+    [readySc >= 8,  `Setup readiness ${bestSig.toFixed(1)}/4.0 — ${bestSig >= 2.5 ? 'setup forming' : 'no clear setup'}`,                                                 Math.round(readySc), 15],
+    [momSc >= 6,    `Momentum Stoch ${sig.k5.toFixed(0)} — ${sig.k5 < 25 || sig.k5 > 75 ? 'trending' : sig.k5 < 40 || sig.k5 > 60 ? 'leaning' : 'ranging/neutral'}`,    Math.round(momSc),   10],
+  ];
+
+  document.getElementById('scalpScore').textContent = scalpTotal;
+  document.getElementById('scalpScore').style.color = scalpColor;
+  document.getElementById('scalpLabel').textContent = scalpLabel;
+  document.getElementById('scalpLabel').style.color = scalpColor;
+  document.getElementById('scalpBar').style.width = scalpTotal + '%';
+  document.getElementById('scalpBar').style.background = scalpColor;
+  document.getElementById('scalpReasons').innerHTML = scalpReasons
+    .map(([ok, txt, pts, max]) =>
+      `<div class="sig-item"><span class="sig-icon ${ok?'green':'red'}">${ok?'✔':'✘'}</span>` +
+      `<span style="${ok?'':'color:var(--muted2)'}">${txt}</span>` +
+      `<span style="margin-left:auto;padding-left:8px;color:var(--muted);font-size:10px;white-space:nowrap">${pts}/${max}</span></div>`)
+    .join('');
 
   // Header
   document.getElementById('hSymbol').textContent = SYMBOL;
