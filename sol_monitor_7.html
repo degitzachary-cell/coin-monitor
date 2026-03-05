@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SOL Monitor</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Bebas+Neue&display=swap');
+:root {
+  --bg:     #06080f;
+  --card:   #0a0e1a;
+  --border: #141c2e;
+  --text:   #e2e8f0;
+  --muted:  #3a4a6b;
+  --muted2: #6b7fa3;
+  --green:  #00ff88;
+  --red:    #ff3d5a;
+  --yellow: #ffb800;
+  --blue:   #4488ff;
+  --cyan:   #00d4ff;
+  --purple: #a855f7;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+.purple { color: var(--purple); }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 14px;
+  min-height: 100vh;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(0,212,255,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(0,255,136,0.03) 0%, transparent 50%);
+}
+
+/* Config bar */
+#configBar {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 14px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+#configBar label { color: var(--muted2); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+#configBar input, #configBar select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+#configBar button {
+  background: var(--cyan);
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 14px;
+  font-weight: 800;
+  font-size: 11px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  font-family: inherit;
+}
+#configBar button:hover { opacity: .8; }
+
+/* Refresh bar */
+#refreshWrap { height: 2px; background: var(--border); border-radius:1px; margin-bottom:10px; }
+#refreshBar  { height: 2px; background: var(--cyan); border-radius:1px; transition: width .1s linear; }
+
+/* Header */
+.header {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 20px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  opacity: 0.6;
+}
+.h-symbol {
+  font-family: 'Bebas Neue', monospace;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--cyan);
+}
+.h-price {
+  font-family: 'Bebas Neue', monospace;
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: 2px;
+}
+.h-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+.h-badge.up   { background:rgba(0,255,136,.12); color:var(--green); border:1px solid rgba(0,255,136,.25); }
+.h-badge.down { background:rgba(255,61,90,.12);  color:var(--red);   border:1px solid rgba(255,61,90,.25); }
+.h-meta { color:var(--muted2); font-size:11px; margin-top:4px; }
+.h-right { text-align:right; }
+.h-trend { font-size:18px; font-weight:800; margin-bottom:4px; font-family: 'Bebas Neue', monospace; letter-spacing: 2px; }
+
+/* Session levels banner */
+.session-banner {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 10px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.session-banner .sb-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--muted2);
+  margin-bottom: 2px;
+}
+.session-banner .sb-val {
+  font-size: 13px;
+  font-weight: 800;
+  font-family: 'Bebas Neue', monospace;
+  letter-spacing: 1px;
+}
+.sb-item { border-right: 1px solid var(--border); padding-right: 20px; }
+.sb-item:last-child { border-right: none; }
+
+/* Grid */
+.row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+.row3 { display:grid; grid-template-columns:1.2fr .85fr .85fr; gap:10px; margin-bottom:10px; }
+
+/* Card */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.card-title {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Progress bars */
+.bar-track { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin:3px 0; }
+.bar-fill  { height:100%; border-radius:3px; transition:width .6s ease; }
+.fill-green  { background: linear-gradient(90deg, #00cc66, var(--green)); }
+.fill-red    { background: linear-gradient(90deg, #cc1133, var(--red)); }
+.fill-cyan   { background: linear-gradient(90deg, #0099cc, var(--cyan)); }
+.fill-yellow { background: linear-gradient(90deg, #cc8800, var(--yellow)); }
+
+/* Indicator rows */
+.ind-row { display:grid; grid-template-columns:65px 1fr 52px; align-items:center; gap:10px; margin-bottom:12px; }
+.ind-label { color:var(--muted2); font-size:11px; }
+.ind-val   { text-align:right; font-weight:800; font-size:13px; }
+.ind-sub   { font-size:10px; color:var(--muted2); margin-top:2px; }
+
+/* Score panels */
+.score-hdr  { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+.score-title{ font-size:14px; font-weight:800; font-family: 'Bebas Neue', monospace; letter-spacing: 1.5px; }
+.score-badge{ font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+.score-track{ height:3px; background:var(--border); border-radius:2px; margin-bottom:12px; }
+.score-fill { height:100%; border-radius:2px; transition:width .6s ease; }
+
+/* Signal items */
+.sig-item {
+  display:flex; align-items:flex-start; gap:8px;
+  padding:5px 0; border-bottom:1px solid var(--border);
+  font-size:11px; line-height:1.5;
+}
+.sig-item:last-child { border-bottom:none; }
+.sig-icon { font-size:12px; flex-shrink:0; margin-top:1px; }
+
+/* Levels */
+.level-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:6px 10px; border-radius:5px; margin-bottom:3px; font-size:11px;
+}
+.level-val  { font-weight:800; font-size:12px; font-family: 'Bebas Neue', monospace; letter-spacing: 1px; }
+.level-dist { font-size:10px; }
+.level-tag  { font-size:9px; letter-spacing: 1px; color: var(--muted2); margin-left: 6px; }
+.lr  { background:rgba(255,61,90,.06); }
+.ls  { background:rgba(0,255,136,.06); }
+.lnow{ background:rgba(0,212,255,.1); border:1px solid rgba(0,212,255,.2); }
+
+/* OB/FVG proximity context */
+.ctx-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  margin-bottom: 5px;
+  line-height: 1.4;
+}
+.ctx-alert.warn  { background: rgba(255,184,0,.08); border: 1px solid rgba(255,184,0,.25); color: var(--yellow); }
+.ctx-alert.strong{ background: rgba(255,61,90,.08);  border: 1px solid rgba(255,61,90,.25);  color: var(--red); }
+.ctx-alert.good  { background: rgba(0,255,136,.06);  border: 1px solid rgba(0,255,136,.2);   color: var(--green); }
+.ctx-icon { font-size: 13px; flex-shrink: 0; }
+
+/* OB / FVG panel */
+.obfvg-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 8px;
+}
+.obfvg-zone {
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.obfvg-zone.supply { background: rgba(255,61,90,.07); border: 1px solid rgba(255,61,90,.2); }
+.obfvg-zone.demand { background: rgba(0,255,136,.07); border: 1px solid rgba(0,255,136,.2); }
+.obfvg-zone.fvg-s  { background: rgba(168,85,247,.07); border: 1px solid rgba(168,85,247,.2); }
+.obfvg-zone.fvg-b  { background: rgba(168,85,247,.07); border: 1px solid rgba(168,85,247,.2); }
+.obfvg-zone.empty  { background: var(--border); border: 1px solid transparent; opacity: 0.4; }
+.obfvg-type  { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; margin-bottom: 2px; }
+.obfvg-hi    { font-size: 13px; font-weight: 800; font-family: 'Bebas Neue', monospace; letter-spacing: 1px; }
+.obfvg-ce    { font-size: 11px; font-weight: 700; font-family: 'Bebas Neue', monospace; letter-spacing: 1px; padding: 2px 6px; border-radius: 3px; display: inline-block; width: fit-content; }
+.obfvg-lo    { font-size: 13px; font-weight: 800; font-family: 'Bebas Neue', monospace; letter-spacing: 1px; }
+.obfvg-dist  { font-size: 10px; margin-top: 2px; }
+.obfvg-tag   { font-size: 9px; letter-spacing: 1px; margin-top: 1px; }
+.big-num { font-size: 24px; font-weight:800; margin-bottom:4px; font-family: 'Bebas Neue', monospace; letter-spacing: 1px; }
+.big-sub { font-size:10px; color:var(--muted2); margin-bottom:6px; }
+
+/* Red flags */
+.flag {
+  padding:8px 12px;
+  background:rgba(255,184,0,.07);
+  border:1px solid rgba(255,184,0,.2);
+  border-radius:5px;
+  margin-bottom:5px;
+  color:var(--yellow);
+  font-size:11px;
+  line-height: 1.5;
+}
+
+/* Fire glow */
+.fire-long  { border-color:rgba(0,255,136,.4)  !important; box-shadow:0 0 20px rgba(0,255,136,.08); }
+.fire-short { border-color:rgba(255,61,90,.4)   !important; box-shadow:0 0 20px rgba(255,61,90,.08); }
+.fire-anim  { animation:fpulse 1.2s ease-in-out infinite; }
+@keyframes fpulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+/* Util */
+.green  { color:var(--green); }
+.red    { color:var(--red); }
+.yellow { color:var(--yellow); }
+.cyan   { color:var(--cyan); }
+.purple { color:var(--purple); }
+.muted  { color:var(--muted2); }
+.bold   { font-weight:700; }
+.hidden { display:none; }
+
+/* Loading */
+#loading {
+  display:flex; align-items:center; justify-content:center;
+  height:120px; flex-direction:column; gap:10px; color:var(--muted2); font-size:12px;
+}
+.spinner {
+  width:28px; height:28px;
+  border:2px solid var(--border);
+  border-top-color:var(--cyan);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* Error */
+#errorMsg { color:var(--red); font-size:11px; }
+
+/* Pulse dot */
+.dot {
+  display: inline-block;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  margin-right: 6px;
+  animation: dotpulse 2s ease-in-out infinite;
+}
+@keyframes dotpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+</style>
+</head>
+<body>
+
+<!-- Config -->
+<div id="configBar">
+  <label>Symbol</label>
+  <input id="cfgSymbol" value="SOLUSDT" style="width:100px">
+  <label>Refresh (s)</label>
+  <input id="cfgRefresh" type="number" value="10" min="5" max="60" style="width:55px">
+  <button onclick="applyConfig()">APPLY</button>
+  <span id="errorMsg"></span>
+  <span style="margin-left:auto; color:var(--muted2); font-size:10px; letter-spacing:1px">
+    <span class="dot"></span>LIVE · <span id="countdown">10</span>s
+  </span>
+</div>
+
+<div id="refreshWrap"><div id="refreshBar" style="width:100%"></div></div>
+
+<!-- TradingView Chart -->
+<div style="margin-bottom:10px; border-radius:10px; overflow:hidden; border:1px solid var(--border);">
+  <div class="tradingview-widget-container" style="height:460px;">
+    <iframe
+      id="tvChart"
+      src="https://www.tradingview.com/widgetembed/?frameElementId=tvChart&symbol=BYBIT%3ASOLUSDT.P&interval=5&hidesidetoolbar=0&hidetoptoolbar=0&symboledit=1&saveimage=0&toolbarbg=0a0e1a&studies=STD%3BStochastic_RSI%1FSource%3Dclose%1FLength%3D14%1FSmoothing%3D3%1FStoch%20Length%3D14&theme=dark&style=1&timezone=Etc%2FUTC&studies_overrides=%7B%7D&overrides=%7B%22mainSeriesProperties.candleStyle.upColor%22%3A%22%2300ff88%22%2C%22mainSeriesProperties.candleStyle.downColor%22%3A%22%23ff3d5a%22%2C%22mainSeriesProperties.candleStyle.borderUpColor%22%3A%22%2300ff88%22%2C%22mainSeriesProperties.candleStyle.borderDownColor%22%3A%22%23ff3d5a%22%2C%22mainSeriesProperties.candleStyle.wickUpColor%22%3A%22%2300ff88%22%2C%22mainSeriesProperties.candleStyle.wickDownColor%22%3A%22%23ff3d5a%22%7D&enabled_features=%5B%5D&disabled_features=%5B%22use_localstorage_for_settings%22%5D&locale=en&utm_source=monitor&utm_medium=widget"
+      style="width:100%; height:460px; border:none;"
+      allowtransparency="true"
+      scrolling="no"
+    ></iframe>
+  </div>
+</div>
+
+<div id="loading"><div class="spinner"></div><div>Connecting to Bybit...</div></div>
+
+<div id="dashboard" class="hidden">
+
+  <div class="header">
+    <div>
+      <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap">
+        <span class="h-symbol" id="hSymbol">SOL/USDT</span>
+        <span class="h-price" id="hPrice">—</span>
+        <span class="h-badge" id="hChange">—</span>
+      </div>
+      <div class="h-meta" id="hMeta">—</div>
+    </div>
+    <div class="h-right">
+      <div class="h-trend" id="hTrend">—</div>
+      <div class="muted" style="font-size:10px; letter-spacing:1px" id="hTime">—</div>
+    </div>
+  </div>
+
+  <!-- Bias Gauge -->
+  <div class="card" style="margin-bottom:10px; padding: 14px 16px">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+      <span style="font-size:9px; letter-spacing:2px; color:var(--red); text-transform:uppercase; font-weight:700">◀ Short</span>
+      <span id="biasLabel" style="font-size:11px; letter-spacing:1.5px; color:var(--muted2); text-transform:uppercase; font-weight:700">—</span>
+      <span style="font-size:9px; letter-spacing:2px; color:var(--green); text-transform:uppercase; font-weight:700">Long ▶</span>
+    </div>
+    <div id="biasTrack" style="position:relative; height:10px; border-radius:5px; background:linear-gradient(to right, rgba(255,61,90,0.3), rgba(30,40,60,0.8) 50%, rgba(0,255,136,0.3)); border:1px solid var(--border);">
+      <div id="biasNeedle" style="position:absolute; top:50%; transform:translate(-50%,-50%); width:3px; height:20px; border-radius:2px; background:var(--cyan); box-shadow:0 0 8px var(--cyan); transition: left 0.6s cubic-bezier(.4,0,.2,1);"></div>
+      <div style="position:absolute; left:50%; top:0; width:1px; height:100%; background:rgba(255,255,255,0.1);"></div>
+    </div>
+    <div style="display:flex; justify-content:space-between; margin-top:5px">
+      <span style="font-size:9px; color:var(--muted)">-100%</span>
+      <span style="font-size:9px; color:var(--muted)">0</span>
+      <span style="font-size:9px; color:var(--muted)">+100%</span>
+    </div>
+  </div>
+
+  <!-- Session levels -->
+  <div class="session-banner">
+    <div class="sb-item">
+      <div class="sb-label">Session Low</div>
+      <div class="sb-val green">$82.43</div>
+    </div>
+    <div class="sb-item">
+      <div class="sb-label">Support</div>
+      <div class="sb-val green">$86.26</div>
+    </div>
+    <div class="sb-item">
+      <div class="sb-label">Resistance</div>
+      <div class="sb-val red">$88.09</div>
+    </div>
+    <div class="sb-item">
+      <div class="sb-label">Major Breakout</div>
+      <div class="sb-val yellow">$90.68</div>
+    </div>
+    <div class="sb-item">
+      <div class="sb-label">24h High</div>
+      <div class="sb-val cyan" id="s24hHigh">—</div>
+    </div>
+    <div>
+      <div class="sb-label">24h Low</div>
+      <div class="sb-val cyan" id="s24hLow">—</div>
+    </div>
+  </div>
+
+  <!-- Indicators -->
+  <div class="card" style="margin-bottom:10px">
+    <div class="card-title">Indicators</div>
+    <div id="indicators"></div>
+  </div>
+
+  <!-- Levels + MACD + Volume -->
+  <div class="row3">
+    <div class="card"><div class="card-title">Key Levels</div><div id="levels"></div></div>
+    <div class="card"><div class="card-title">MACD · 5m</div><div id="macd"></div></div>
+    <div class="card"><div class="card-title">Volume · 1m</div><div id="volume"></div></div>
+  </div>
+
+  <!-- OB / FVG Card -->
+  <div class="card" style="margin-bottom:10px" id="obfvgCard">
+    <div class="card-title">Order Blocks &amp; Fair Value Gaps · 15m</div>
+    <div id="obfvgContext" style="margin-bottom:8px"></div>
+    <div id="obfvgPanel"></div>
+  </div>
+
+  <!-- Signal panels -->
+  <div class="row2">
+    <div class="card" id="longCard">
+      <div id="longHeader"></div><div id="longItems"></div>
+    </div>
+    <div class="card" id="shortCard">
+      <div id="shortHeader"></div><div id="shortItems"></div>
+    </div>
+  </div>
+
+  <!-- Flags -->
+  <div id="flagsWrap" class="hidden" style="margin-bottom:10px">
+    <div class="card" style="border-color:rgba(255,184,0,.3)">
+      <div class="card-title" style="color:var(--yellow)">⚠ Red Flags</div>
+      <div id="flags"></div>
+    </div>
+  </div>
+
+  <div style="text-align:center; color:var(--muted); font-size:10px; letter-spacing:1.5px; padding:8px 0; text-transform:uppercase">
+    SOL Monitor · Bybit Public API · No installation required
+  </div>
+</div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+let SYMBOL  = 'SOLUSDT';
+let REFRESH = 10;
+let cdTimer = null, fetchTimer = null, cdVal = 10;
+
+// Session key levels (editable)
+const SESSION_LEVELS = {
+  support1:   86.26,
+  resistance1: 88.09,
+  breakout:   90.68,
+  sessionLow: 82.43,
+};
+
+function applyConfig() {
+  SYMBOL  = document.getElementById('cfgSymbol').value.trim().toUpperCase() || 'SOLUSDT';
+  REFRESH = parseInt(document.getElementById('cfgRefresh').value) || 10;
+  document.getElementById('cfgSymbol').value  = SYMBOL;
+  document.getElementById('cfgRefresh').value = REFRESH;
+  if (fetchTimer) clearInterval(fetchTimer);
+  fetchData();
+  fetchTimer = setInterval(fetchData, REFRESH * 1000);
+}
+
+// ── BYBIT API ─────────────────────────────────────────────────────────────────
+async function fetchKlines(symbol, interval, limit=150) {
+  const url = `https://api.bybit.com/v5/market/kline?category=linear&symbol=${symbol}&interval=${interval}&limit=${limit}`;
+  const r = await fetch(url);
+  const d = await r.json();
+  if (d.retCode !== 0) throw new Error(d.retMsg);
+  return d.result.list.slice().reverse().map(r => ({
+    ts:     parseInt(r[0]),
+    open:   parseFloat(r[1]),
+    high:   parseFloat(r[2]),
+    low:    parseFloat(r[3]),
+    close:  parseFloat(r[4]),
+    volume: parseFloat(r[5]),
+  }));
+}
+
+async function fetchTicker(symbol) {
+  const url = `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${symbol}`;
+  const r = await fetch(url);
+  const d = await r.json();
+  return d.result?.list?.[0] || {};
+}
+
+// ── INDICATORS ────────────────────────────────────────────────────────────────
+function sma(arr, period) {
+  const out = new Array(arr.length).fill(NaN);
+  for (let i = period - 1; i < arr.length; i++) {
+    let sum = 0, count = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      if (!isNaN(arr[j])) { sum += arr[j]; count++; }
+    }
+    if (count === period) out[i] = sum / period;
+  }
+  return out;
+}
+
+function ema(arr, period) {
+  const alpha = 2 / (period + 1);
+  const out   = new Array(arr.length).fill(NaN);
+  let prev    = NaN;
+  for (let i = 0; i < arr.length; i++) {
+    if (isNaN(arr[i])) continue;
+    if (isNaN(prev)) { prev = arr[i]; out[i] = prev; continue; }
+    prev   = alpha * arr[i] + (1 - alpha) * prev;
+    out[i] = prev;
+  }
+  return out;
+}
+
+function calcRSI(closes, period=14) {
+  const out   = new Array(closes.length).fill(NaN);
+  let avgGain = 0, avgLoss = 0;
+  for (let i = 1; i <= period && i < closes.length; i++) {
+    const d = closes[i] - closes[i-1];
+    if (d > 0) avgGain += d; else avgLoss -= d;
+  }
+  avgGain /= period; avgLoss /= period;
+  if (period < closes.length)
+    out[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i-1];
+    avgGain = (avgGain * (period-1) + Math.max(d, 0)) / period;
+    avgLoss = (avgLoss * (period-1) + Math.max(-d, 0)) / period;
+    out[i] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  }
+  return out;
+}
+
+function calcStochRSI(closes, rsiLen=14, stochLen=14, kSmooth=3, dSmooth=3) {
+  const rsiVals = calcRSI(closes, rsiLen);
+  const raw     = new Array(closes.length).fill(NaN);
+  for (let i = rsiLen + stochLen - 1; i < closes.length; i++) {
+    const slice = rsiVals.slice(i - stochLen + 1, i + 1).filter(v => !isNaN(v));
+    if (slice.length < stochLen) continue;
+    const lo = Math.min(...slice), hi = Math.max(...slice);
+    raw[i] = hi === lo ? 0 : (rsiVals[i] - lo) / (hi - lo) * 100;
+  }
+  const k = sma(raw, kSmooth);
+  const d = sma(k,   dSmooth);
+  return { k, d };
+}
+
+function calcBB(closes, period=20, sd=2) {
+  const mid   = sma(closes, period);
+  const upper = new Array(closes.length).fill(NaN);
+  const lower = new Array(closes.length).fill(NaN);
+  for (let i = period - 1; i < closes.length; i++) {
+    if (isNaN(mid[i])) continue;
+    const slice = closes.slice(i - period + 1, i + 1);
+    const mean  = mid[i];
+    const std   = Math.sqrt(slice.reduce((a, b) => a + (b - mean) ** 2, 0) / period);
+    upper[i] = mean + sd * std;
+    lower[i] = mean - sd * std;
+  }
+  return { upper, mid, lower };
+}
+
+function calcMACD(closes, fast=12, slow=26, signal=9) {
+  const e12  = ema(closes, fast);
+  const e26  = ema(closes, slow);
+  const line = closes.map((_, i) => isNaN(e12[i])||isNaN(e26[i]) ? NaN : e12[i]-e26[i]);
+  const sig  = ema(line, signal);
+  const hist = line.map((v, i) => isNaN(v)||isNaN(sig[i]) ? NaN : v-sig[i]);
+  return { line, sig, hist };
+}
+
+function calcVolSpike(volumes, lookback=20) {
+  const out = new Array(volumes.length).fill(NaN);
+  for (let i = lookback - 1; i < volumes.length; i++) {
+    const avg = volumes.slice(i - lookback + 1, i + 1).reduce((a,b)=>a+b,0) / lookback;
+    out[i] = avg === 0 ? 1 : volumes[i] / avg;
+  }
+  return out;
+}
+
+function findSR(candles, window=10, n=3) {
+  const price = candles[candles.length-1].close;
+  const resCands=[], supCands=[];
+  for (let i = window; i < candles.length - window; i++) {
+    const hSlice = candles.slice(i-window, i+window+1).map(c=>c.high);
+    const lSlice = candles.slice(i-window, i+window+1).map(c=>c.low);
+    if (candles[i].high === Math.max(...hSlice)) resCands.push(candles[i].high);
+    if (candles[i].low  === Math.min(...lSlice)) supCands.push(candles[i].low);
+  }
+  function cluster(vals, tol=0.003) {
+    const sorted = [...new Set(vals)].sort((a,b)=>a-b);
+    const out = [];
+    for (const v of sorted) {
+      if (!out.length || Math.abs(v - out[out.length-1]) / out[out.length-1] > tol) out.push(v);
+    }
+    return out;
+  }
+  return {
+    supports:    cluster(supCands).filter(s => s < price).slice(0, n),
+    resistances: cluster(resCands).filter(r => r > price).slice(-n),
+  };
+}
+
+// ── FVG DETECTION (15m) ───────────────────────────────────────────────────────
+function findFVGs(candles, price, lookback = 60) {
+  const slice = candles.slice(-lookback);
+  const bullish = [], bearish = [];
+
+  for (let i = 1; i < slice.length - 1; i++) {
+    const c1 = slice[i - 1], c2 = slice[i], c3 = slice[i + 1];
+    // Bullish FVG: c3.low > c1.high — gap between c1 top and c3 bottom
+    if (c3.low > c1.high) {
+      const top = c3.low, bot = c1.high, mid = (top + bot) / 2;
+      const filled = price < bot; // price has traded back into or below gap
+      bullish.push({ top, bot, mid, filled });
+    }
+    // Bearish FVG: c3.high < c1.low — gap between c1 bottom and c3 top
+    if (c3.high < c1.low) {
+      const top = c1.low, bot = c3.high, mid = (top + bot) / 2;
+      const filled = price > top; // price has traded back into or above gap
+      bearish.push({ top, bot, mid, filled });
+    }
+  }
+
+  // Nearest unfilled bullish FVG below price, nearest unfilled bearish above price
+  const bFVG = bullish.filter(f => !f.filled && f.top < price).sort((a,b) => b.top - a.top)[0] || null;
+  const sFVG = bearish.filter(f => !f.filled && f.bot > price).sort((a,b) => a.bot - b.bot)[0] || null;
+  return { bFVG, sFVG };
+}
+
+// ── ORDER BLOCK DETECTION (15m) ───────────────────────────────────────────────
+function findOBs(candles, price, lookback = 80) {
+  const slice = candles.slice(-lookback);
+  const bullOBs = [], bearOBs = [];
+
+  for (let i = 1; i < slice.length - 2; i++) {
+    const c = slice[i];
+    // Bullish OB: last bearish candle before a strong impulsive bullish move
+    if (c.close < c.open) {
+      // Check for strong bullish displacement in next 1-3 candles
+      const moveUp = slice.slice(i + 1, i + 4).reduce((max, x) => Math.max(max, x.high), 0);
+      const displacement = (moveUp - c.high) / c.high;
+      if (displacement > 0.004) { // at least 0.4% move away
+        const ob = { high: c.high, low: c.low, mid: (c.high + c.low) / 2 };
+        // Check if mitigated (price has returned to zone since OB formed)
+        const subsequent = slice.slice(i + 1);
+        const mitigated = subsequent.some(x => x.low <= ob.high && x.low >= ob.low);
+        bullOBs.push({ ...ob, mitigated });
+      }
+    }
+    // Bearish OB: last bullish candle before a strong impulsive bearish move
+    if (c.close > c.open) {
+      const moveDown = slice.slice(i + 1, i + 4).reduce((min, x) => Math.min(min, x.low), Infinity);
+      const displacement = (c.low - moveDown) / c.low;
+      if (displacement > 0.004) {
+        const ob = { high: c.high, low: c.low, mid: (c.high + c.low) / 2 };
+        const subsequent = slice.slice(i + 1);
+        const mitigated = subsequent.some(x => x.high >= ob.low && x.high <= ob.high);
+        bearOBs.push({ ...ob, mitigated });
+      }
+    }
+  }
+
+  // Nearest bullish OB below price, nearest bearish OB above price
+  const bOB = bullOBs.filter(o => o.high < price).sort((a,b) => b.high - a.high)[0] || null;
+  const sOB = bearOBs.filter(o => o.low > price).sort((a,b) => a.low - b.low)[0] || null;
+  return { bOB, sOB };
+}
+
+// ── SIGNAL ENGINE ─────────────────────────────────────────────────────────────
+function analyse(c1m, c5m, c15m) {
+  const cl = arr => arr.map(c => c.close);
+  const last = arr => arr[arr.length-1];
+  const prev = arr => arr[arr.length-2];
+
+  const srsi1 = calcStochRSI(cl(c1m));
+  const vspk1 = calcVolSpike(c1m.map(c=>c.volume));
+  const k1 = last(srsi1.k.filter(v=>!isNaN(v)));
+  const d1 = last(srsi1.d.filter(v=>!isNaN(v)));
+  const vs = last(vspk1.filter(v=>!isNaN(v)));
+
+  const bb5   = calcBB(cl(c5m));
+  const srsi5 = calcStochRSI(cl(c5m));
+  const mac5  = calcMACD(cl(c5m));
+  const k5  = last(srsi5.k.filter(v=>!isNaN(v)));
+  const d5  = last(srsi5.d.filter(v=>!isNaN(v)));
+  const k5p = prev(srsi5.k.filter(v=>!isNaN(v)));
+  const bbLo  = last(bb5.lower.filter(v=>!isNaN(v)));
+  const bbMid = last(bb5.mid.filter(v=>!isNaN(v)));
+  const bbHi  = last(bb5.upper.filter(v=>!isNaN(v)));
+  const mh    = last(mac5.hist.filter(v=>!isNaN(v)));
+  const mhp   = prev(mac5.hist.filter(v=>!isNaN(v)));
+  const ml    = last(mac5.line.filter(v=>!isNaN(v)));
+  const ms    = last(mac5.sig.filter(v=>!isNaN(v)));
+
+  const cl15 = cl(c15m);
+  const trend15 = cl15[cl15.length-1] > cl15[cl15.length-6] ? 'BULLISH' : 'BEARISH';
+
+  const price   = last(c1m).close;
+  const l1open  = last(c1m).open;
+  const p1close = prev(c1m).close;
+  const p1open  = prev(c1m).open;
+
+  // Bounce: green candle after red, with minimum body size (0.15% of price)
+  const minBody   = price * 0.0015;
+  const bounce    = price > l1open && (price - l1open) >= minBody && p1close < p1open;
+  const rejection = price < l1open && (l1open - price) >= minBody && p1close > p1open;
+
+  // Session level proximity check
+  const nearSupport   = Math.abs(price - SESSION_LEVELS.support1) / price < 0.005;
+  const nearResistance= Math.abs(price - SESSION_LEVELS.resistance1) / price < 0.005;
+  const nearBreakout  = Math.abs(price - SESSION_LEVELS.breakout) / price < 0.005;
+
+  // ── Long conditions ──
+  const longItems = [];
+  let   longScore = 0;
+
+  if (price <= bbLo * 1.002) {
+    longScore += 1; longItems.push([true,  `Price at/below lower BB [${fmt(bbLo,2)}]`]);
+  } else {
+    longItems.push([false, `Price above lower BB — need ≤ ${fmt(bbLo,2)}`]);
+  }
+  const kCrossUp = k5 < 20 && k5 > k5p && k5 > d5;
+  if (kCrossUp) {
+    longScore += 1; longItems.push([true,  `Stoch RSI 5m K crossed above D  [K:${k5.toFixed(1)} D:${d5.toFixed(1)}]`]);
+  } else if (k5 < 10) {
+    longScore += 0.5; longItems.push([true,  `Stoch RSI 5m oversold, not crossed yet  [K:${k5.toFixed(1)} D:${d5.toFixed(1)}]`]);
+  } else {
+    longItems.push([false, `Stoch RSI 5m = ${k5.toFixed(1)}  (need K cross above D from oversold)`]);
+  }
+  if (vs >= 2) {
+    longScore += 1; longItems.push([true,  `Volume spike ${vs.toFixed(1)}x — capitulation`]);
+  } else {
+    longItems.push([false, `Volume ${vs.toFixed(1)}x avg  (need ≥ 2x)`]);
+  }
+  if (bounce) {
+    longScore += 1; longItems.push([true,  'Bounce candle 1m  [green after red ✓]']);
+  } else {
+    longItems.push([false, 'No bounce candle 1m — wait for reversal']);
+  }
+  if (mh > mhp) {
+    longScore += 0.25; longItems.push([true,  `MACD hist rising  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
+  } else {
+    longItems.push([false, `MACD hist falling  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
+  }
+  if (nearSupport) {
+    longScore += 0.5; longItems.push([true,  `At session support $${SESSION_LEVELS.support1} ⚡`]);
+  }
+  if (k1 <= k5p || k1 < 15) {
+    longScore += 0.25; longItems.push([true,  `Stoch RSI 1m cooling  [${k1.toFixed(1)}]`]);
+  }
+
+  // ── Short conditions ──
+  const shortItems = [];
+  let   shortScore = 0;
+
+  if (price >= bbHi * 0.998) {
+    shortScore += 1; shortItems.push([true,  `Price at/above upper BB [${fmt(bbHi,2)}]`]);
+  } else {
+    shortItems.push([false, `Price below upper BB — need ≥ ${fmt(bbHi,2)}`]);
+  }
+  const kCrossDown = k5 > 80 && k5 < k5p && k5 < d5;
+  if (kCrossDown) {
+    shortScore += 1; shortItems.push([true,  `Stoch RSI 5m K crossed below D  [K:${k5.toFixed(1)} D:${d5.toFixed(1)}]`]);
+  } else if (k5 > 90) {
+    shortScore += 0.5; shortItems.push([true,  `Stoch RSI 5m overbought, not crossed yet  [K:${k5.toFixed(1)} D:${d5.toFixed(1)}]`]);
+  } else {
+    shortItems.push([false, `Stoch RSI 5m = ${k5.toFixed(1)}  (need K cross below D from overbought)`]);
+  }
+  if (k1 > 90) {
+    shortScore += 0.5; shortItems.push([true,  `Stoch RSI 1m > 90  [${k1.toFixed(1)}]`]);
+  } else {
+    shortItems.push([false, `Stoch RSI 1m = ${k1.toFixed(1)}  (need > 90)`]);
+  }
+  if (rejection) {
+    shortScore += 1; shortItems.push([true,  'Rejection candle 1m  [red after green ✓]']);
+  } else {
+    shortItems.push([false, 'No rejection candle 1m — wait']);
+  }
+  if (mh < 0 && mh < mhp) {
+    shortScore += 0.5; shortItems.push([true,  `MACD negative & falling  [${mh.toFixed(4)}]`]);
+  } else {
+    shortItems.push([false, `MACD hist: ${mh >= 0 ? '+' : ''}${mh.toFixed(4)}`]);
+  }
+  if (nearResistance || nearBreakout) {
+    shortScore += 0.5; shortItems.push([true,  `At session resistance $${nearBreakout ? SESSION_LEVELS.breakout : SESSION_LEVELS.resistance1} ⚡`]);
+  }
+
+  // ── Red flags ──
+  const redFlags = [];
+  if (k5 < 20 && !bounce)
+    redFlags.push('Stoch RSI oversold but no bounce candle with body — wait for price to confirm');
+  if (k5p < 10 && k5 > 25)
+    redFlags.push('Stoch RSI already crossed up from oversold — entry window may be closing');
+  const h = c1m.map(c=>c.high);
+  if (h[h.length-1] < h[h.length-2] && h[h.length-2] < h[h.length-3])
+    redFlags.push('Lower highs forming on 1m — don\'t long into descending resistance');
+  if (trend15 === 'BEARISH' && longScore >= 3)
+    redFlags.push('LONG signal BUT 15m trend is BEARISH — reduce size or skip');
+  if (trend15 === 'BULLISH' && shortScore >= 3)
+    redFlags.push('SHORT signal BUT 15m trend is BULLISH — reduce size or skip');
+  if (price > SESSION_LEVELS.breakout * 0.998 && price < SESSION_LEVELS.breakout * 1.002)
+    redFlags.push(`Price at major breakout level $${SESSION_LEVELS.breakout} — wait for confirmed break or rejection`);
+
+  const { bFVG, sFVG } = findFVGs(c15m, price);
+  const { bOB,  sOB  } = findOBs(c15m,  price);
+
+  return {
+    price, trend15, bbLo, bbMid, bbHi, k1, d1, k5, d5, vs,
+    macd: ml, macdSig: ms, macdHist: mh,
+    longScore, longItems, shortScore, shortItems, redFlags,
+    bFVG, sFVG, bOB, sOB,
+  };
+}
+
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function fmt(n, dec=2) {
+  return parseFloat(n).toLocaleString('en-US', {minimumFractionDigits:dec, maximumFractionDigits:dec});
+}
+
+function barHTML(pct, color='cyan', height=6) {
+  const cls = {green:'fill-green',red:'fill-red',cyan:'fill-cyan',yellow:'fill-yellow'}[color]||'fill-cyan';
+  const p   = Math.max(0, Math.min(100, parseFloat(pct)||0));
+  return `<div class="bar-track" style="height:${height}px"><div class="bar-fill ${cls}" style="width:${p}%"></div></div>`;
+}
+
+function indRow(label, pct, valHtml, subHtml='') {
+  const c = pct < 10 ? 'red' : (pct > 90 ? 'green' : 'cyan');
+  return `<div class="ind-row">
+    <span class="ind-label">${label}</span>
+    <div>${barHTML(pct, c, 7)}${subHtml ? `<div class="ind-sub">${subHtml}</div>` : ''}</div>
+    <span class="ind-val ${c}">${valHtml}</span>
+  </div>`;
+}
+
+function sigItem(ok, txt) {
+  return `<div class="sig-item">
+    <span class="sig-icon ${ok?'green':'red'}">${ok?'✔':'✘'}</span>
+    <span style="${ok?'':'color:var(--muted2)'}">${txt}</span>
+  </div>`;
+}
+
+function renderPanel(score, side, items, cardId, headId, itemsId) {
+  const fire = score >= 3.5, ok = score >= 2;
+  const isLong = side === 'LONG';
+  const color  = isLong ? 'green' : 'red';
+  const label  = fire ? `🔥 ${side} — FIRE` : `${isLong?'▲':'▼'} ${side}`;
+  const pct    = Math.min(100, score / 4 * 100);
+  const bStyle = fire
+    ? `background:rgba(${isLong?'0,255,136':'255,61,90'},.2);color:var(--${color});border:1px solid var(--${color})`
+    : ok ? `background:rgba(${isLong?'0,255,136':'255,61,90'},.1);color:var(--${color})`
+         : `background:var(--border);color:var(--muted2)`;
+  document.getElementById(cardId).className = `card${fire?(isLong?' fire-long':' fire-short'):''}`;
+  document.getElementById(headId).innerHTML = `
+    <div class="score-hdr">
+      <span class="score-title ${fire?'fire-anim':''} ${ok?color:'muted'}">${label}</span>
+      <span class="score-badge" style="${bStyle}">${score.toFixed(1)} / 4</span>
+    </div>
+    <div class="score-track"><div class="score-fill fill-${color}" style="width:${pct}%"></div></div>`;
+  document.getElementById(itemsId).innerHTML = items.map(([ok,t])=>sigItem(ok,t)).join('');
+}
+
+function render(sig, supports, resistances, ticker) {
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+  document.getElementById('errorMsg').textContent = '';
+
+  const chg = parseFloat(ticker.price24hPcnt||0) * 100;
+  const up  = chg >= 0;
+
+  // Update 24h high/low in session banner
+  document.getElementById('s24hHigh').textContent = '$' + fmt(ticker.highPrice24h);
+  document.getElementById('s24hLow').textContent  = '$' + fmt(ticker.lowPrice24h);
+
+  // ── BIAS GAUGE ────────────────────────────────────────────────────────────────
+  // Raw score: longScore positive, shortScore negative, max 4 each
+  let bias = (sig.longScore - sig.shortScore) / 4; // -1 to +1
+
+  // OB/FVG context nudge (±0.15 max)
+  const pctFromG = (zone) => Math.abs(zone - sig.price) / sig.price * 100;
+  if (sig.bOB && !sig.bOB.mitigated && pctFromG(sig.bOB.high) < 0.5) bias += 0.08;
+  if (sig.bFVG && pctFromG(sig.bFVG.top) < 0.5)                       bias += 0.07;
+  if (sig.sOB && !sig.sOB.mitigated && pctFromG(sig.sOB.low) < 0.5)   bias -= 0.08;
+  if (sig.sFVG && pctFromG(sig.sFVG.bot) < 0.5)                        bias -= 0.07;
+
+  // Trend nudge
+  if (sig.trend15 === 'BULLISH') bias += 0.05;
+  if (sig.trend15 === 'BEARISH') bias -= 0.05;
+
+  bias = Math.max(-1, Math.min(1, bias));
+  const biasPct  = Math.round(bias * 100);
+  const needlePct = (bias + 1) / 2 * 100; // 0–100% for left position
+
+  const biasColor = bias > 0.15 ? 'var(--green)' : bias < -0.15 ? 'var(--red)' : 'var(--cyan)';
+  const biasText  = bias > 0.5  ? `LONG BIAS  +${biasPct}%`
+                  : bias > 0.15 ? `LEANING LONG  +${biasPct}%`
+                  : bias < -0.5 ? `SHORT BIAS  ${biasPct}%`
+                  : bias < -0.15? `LEANING SHORT  ${biasPct}%`
+                  : `NEUTRAL  ${biasPct > 0 ? '+' : ''}${biasPct}%`;
+
+  document.getElementById('biasNeedle').style.left = needlePct + '%';
+  document.getElementById('biasNeedle').style.background = biasColor;
+  document.getElementById('biasNeedle').style.boxShadow  = `0 0 8px ${biasColor}`;
+  document.getElementById('biasLabel').style.color = biasColor;
+  document.getElementById('biasLabel').textContent = biasText;
+
+  // Header
+  document.getElementById('hSymbol').textContent = SYMBOL;
+  document.getElementById('hPrice').innerHTML = `<span class="${up?'green':'red'}">$${fmt(sig.price)}</span>`;
+  document.getElementById('hChange').textContent = (up?'+':'') + chg.toFixed(2) + '%';
+  document.getElementById('hChange').className = 'h-badge ' + (up?'up':'down');
+  document.getElementById('hMeta').innerHTML =
+    `24h &nbsp;<span class="green">$${fmt(ticker.highPrice24h)}</span> / <span class="red">$${fmt(ticker.lowPrice24h)}</span> &nbsp;·&nbsp; Turnover ${parseFloat(ticker.turnover24h||0).toLocaleString('en-US',{maximumFractionDigits:0})}`;
+  document.getElementById('hTrend').innerHTML =
+    sig.trend15 === 'BULLISH'
+      ? '<span class="green">▲ BULL</span> <span class="muted" style="font-size:11px">15m</span>'
+      : '<span class="red">▼ BEAR</span> <span class="muted" style="font-size:11px">15m</span>';
+  document.getElementById('hTime').textContent = new Date().toLocaleTimeString();
+
+  // Indicators
+  const bbPct = ((sig.price - sig.bbLo) / Math.max(sig.bbHi - sig.bbLo, 1) * 100);
+  const bbC   = bbPct < 5 ? 'red' : bbPct > 95 ? 'green' : 'cyan';
+  document.getElementById('indicators').innerHTML =
+    indRow('BB 5m', bbPct,
+      `<span class="${bbC}">${bbPct.toFixed(0)}%</span>`,
+      `Lo ${fmt(sig.bbLo,2)} &nbsp;·&nbsp; Mid ${fmt(sig.bbMid,2)} &nbsp;·&nbsp; Hi ${fmt(sig.bbHi,2)}`)
+    + indRow('StRSI 1m', sig.k1, sig.k1.toFixed(1),
+      `K: ${sig.k1.toFixed(1)} &nbsp;·&nbsp; D: ${sig.d1.toFixed(1)}`)
+    + indRow('StRSI 5m', sig.k5, sig.k5.toFixed(1),
+      `K: ${sig.k5.toFixed(1)} &nbsp;·&nbsp; D: ${sig.d5.toFixed(1)}`);
+
+  // MACD
+  const mh = sig.macdHist;
+  const mc = mh > 0 ? 'green' : 'red';
+  document.getElementById('macd').innerHTML = `
+    <div class="big-num ${mc}">${mh>=0?'▲':'▼'} ${mh>=0?'+':''}${mh.toFixed(4)}</div>
+    <div class="big-sub">Line ${sig.macd.toFixed(4)} &nbsp;·&nbsp; Sig ${sig.macdSig.toFixed(4)}</div>
+    <span class="${mc}" style="font-size:10px;letter-spacing:1px">${mh>0?'RISING — BULLISH':'FALLING — BEARISH'}</span>`;
+
+  // Volume
+  const vs  = sig.vs;
+  const vc  = vs >= 2 ? 'yellow' : 'cyan';
+  const vp  = Math.min(100, vs / 5 * 100);
+  document.getElementById('volume').innerHTML = `
+    <div class="big-num ${vc}">${vs.toFixed(2)}x</div>
+    <div class="big-sub">vs 20-bar avg</div>
+    ${barHTML(vp, vc, 7)}
+    <div class="${vc}" style="font-size:10px;margin-top:6px;letter-spacing:1px">${vs>=2?'⚡ SPIKE':'NORMAL'}</div>`;
+
+  // Levels — merge auto-detected + session levels only (OB/FVG in dedicated card)
+  const sessionRes = [SESSION_LEVELS.resistance1, SESSION_LEVELS.breakout].filter(l => l > sig.price);
+  const sessionSup = [SESSION_LEVELS.support1, SESSION_LEVELS.sessionLow].filter(l => l < sig.price);
+  const allRes = [...new Set([...resistances, ...sessionRes])].sort((a,b)=>a-b).filter(r => r > sig.price).slice(-3);
+  const allSup = [...new Set([...supports, ...sessionSup])].sort((a,b)=>a-b).filter(s => s < sig.price).slice(0,3);
+  const sessionLvls = new Set([SESSION_LEVELS.support1, SESSION_LEVELS.resistance1, SESSION_LEVELS.breakout, SESSION_LEVELS.sessionLow]);
+
+  let lvls = '';
+  for (const r of [...allRes].reverse()) {
+    const tag = sessionLvls.has(r) ? ' <span class="yellow" style="font-size:9px">SESSION</span>' : '';
+    lvls += `<div class="level-row lr"><span><span class="red bold">▲</span> &nbsp;<span class="level-val">${fmt(r,2)}</span>${tag}</span><span class="level-dist green">+${((r-sig.price)/sig.price*100).toFixed(2)}%</span></div>`;
+  }
+  lvls += `<div class="level-row lnow"><span><span class="cyan bold">◆</span> &nbsp;<span class="level-val cyan">${fmt(sig.price,2)}</span></span><span class="cyan muted" style="font-size:10px">NOW</span></div>`;
+  for (const s of [...allSup].reverse()) {
+    const tag = sessionLvls.has(s) ? ' <span class="yellow" style="font-size:9px">SESSION</span>' : '';
+    lvls += `<div class="level-row ls"><span><span class="green bold">▼</span> &nbsp;<span class="level-val">${fmt(s,2)}</span>${tag}</span><span class="level-dist red">-${((sig.price-s)/sig.price*100).toFixed(2)}%</span></div>`;
+  }
+  document.getElementById('levels').innerHTML = lvls;
+
+  // ── OB / FVG PROXIMITY CONTEXT ────────────────────────────────────────────────
+  const pctFrom = (zone) => Math.abs(zone - sig.price) / sig.price * 100;
+  const ctxAlerts = [];
+
+  // Demand zones close below — bad for shorts
+  if (sig.bOB && !sig.bOB.mitigated) {
+    const d = pctFrom(sig.bOB.high);
+    if (d < 0.25)
+      ctxAlerts.push({ level: 'strong', icon: '🚫', text: `Fresh bullish OB only ${d.toFixed(2)}% below — shorting into strong demand, high risk of reversal` });
+    else if (d < 0.5)
+      ctxAlerts.push({ level: 'warn', icon: '⚠', text: `Fresh bullish OB ${d.toFixed(2)}% below — demand nearby, short has limited room` });
+  }
+  if (sig.bFVG) {
+    const d = pctFrom(sig.bFVG.top);
+    if (d < 0.25)
+      ctxAlerts.push({ level: 'strong', icon: '🚫', text: `Bullish FVG just ${d.toFixed(2)}% below — price likely drawn to fill it, short is counter-flow` });
+    else if (d < 0.5)
+      ctxAlerts.push({ level: 'warn', icon: '⚠', text: `Bullish FVG ${d.toFixed(2)}% below — FVG may act as magnet and support shorts` });
+  }
+
+  // Supply zones close above — bad for longs
+  if (sig.sOB && !sig.sOB.mitigated) {
+    const d = pctFrom(sig.sOB.low);
+    if (d < 0.25)
+      ctxAlerts.push({ level: 'strong', icon: '🚫', text: `Fresh bearish OB only ${d.toFixed(2)}% above — longing into supply, likely rejection ahead` });
+    else if (d < 0.5)
+      ctxAlerts.push({ level: 'warn', icon: '⚠', text: `Fresh bearish OB ${d.toFixed(2)}% above — supply nearby, long has limited room` });
+  }
+  if (sig.sFVG) {
+    const d = pctFrom(sig.sFVG.bot);
+    if (d < 0.25)
+      ctxAlerts.push({ level: 'strong', icon: '🚫', text: `Bearish FVG just ${d.toFixed(2)}% above — price may fill gap then reverse, use as TP not entry` });
+    else if (d < 0.5)
+      ctxAlerts.push({ level: 'warn', icon: '⚠', text: `Bearish FVG ${d.toFixed(2)}% above — consider using CE as TP target rather than holding through it` });
+  }
+
+  // Clean context — no nearby opposing zones
+  const demandClose = (sig.bOB && pctFrom(sig.bOB.high) < 0.5) || (sig.bFVG && pctFrom(sig.bFVG.top) < 0.5);
+  const supplyClose = (sig.sOB && pctFrom(sig.sOB.low) < 0.5)  || (sig.sFVG && pctFrom(sig.sFVG.bot) < 0.5);
+  if (!demandClose && !supplyClose)
+    ctxAlerts.push({ level: 'good', icon: '✔', text: 'No opposing OB or FVG within 0.5% — clean space on both sides' });
+
+  const ctxEl = document.getElementById('obfvgContext');
+  ctxEl.innerHTML = ctxAlerts.length
+    ? ctxAlerts.map(a => `<div class="ctx-alert ${a.level}"><span class="ctx-icon">${a.icon}</span><span>${a.text}</span></div>`).join('')
+    : '';
+
+  // ── OB / FVG CARD ─────────────────────────────────────────────────────────────
+  function obfvgZone(type, cssClass, hi, ce, lo, price, label) {
+    const dist = ((ce - price) / price * 100);
+    const distStr = (dist >= 0 ? '+' : '') + dist.toFixed(2) + '%';
+    const distColor = dist >= 0 ? 'green' : 'red';
+    const ceColor = cssClass === 'supply' || cssClass === 'fvg-s' ? 'var(--red)' : cssClass === 'demand' || cssClass === 'fvg-b' ? 'var(--green)' : 'var(--yellow)';
+    return `<div class="obfvg-zone ${cssClass}">
+      <div class="obfvg-type ${cssClass === 'supply' || cssClass === 'fvg-s' ? 'red' : 'green'}">${type}</div>
+      <div class="obfvg-hi muted">${fmt(hi, 2)}</div>
+      <div class="obfvg-ce" style="background:${ceColor}22;color:${ceColor}">${fmt(ce, 2)} <span style="font-size:8px;letter-spacing:1px">${label}</span></div>
+      <div class="obfvg-lo muted">${fmt(lo, 2)}</div>
+      <div class="obfvg-dist ${distColor}">${distStr} from price</div>
+    </div>`;
+  }
+
+  function emptyZone(msg) {
+    return `<div class="obfvg-zone empty" style="justify-content:center;align-items:center;min-height:90px">
+      <div class="muted" style="font-size:10px;text-align:center">${msg}</div>
+    </div>`;
+  }
+
+  const panel = document.getElementById('obfvgPanel');
+  let zones = '<div class="obfvg-grid">';
+
+  // Bearish OB (supply above)
+  if (sig.sOB) {
+    const label = sig.sOB.mitigated ? 'MITIGATED' : 'FRESH';
+    zones += obfvgZone('Bearish OB · Supply', 'supply', sig.sOB.high, sig.sOB.mid, sig.sOB.low, sig.price, label);
+  } else {
+    zones += emptyZone('No bearish OB detected');
+  }
+
+  // Bearish FVG (supply above)
+  if (sig.sFVG) {
+    zones += obfvgZone('Bearish FVG · Supply', 'fvg-s', sig.sFVG.top, sig.sFVG.mid, sig.sFVG.bot, sig.price, 'CE');
+  } else {
+    zones += emptyZone('No bearish FVG detected');
+  }
+
+  // Bullish FVG (demand below)
+  if (sig.bFVG) {
+    zones += obfvgZone('Bullish FVG · Demand', 'fvg-b', sig.bFVG.top, sig.bFVG.mid, sig.bFVG.bot, sig.price, 'CE');
+  } else {
+    zones += emptyZone('No bullish FVG detected');
+  }
+
+  // Bullish OB (demand below)
+  if (sig.bOB) {
+    const label = sig.bOB.mitigated ? 'MITIGATED' : 'FRESH';
+    zones += obfvgZone('Bullish OB · Demand', 'demand', sig.bOB.high, sig.bOB.mid, sig.bOB.low, sig.price, label);
+  } else {
+    zones += emptyZone('No bullish OB detected');
+  }
+
+  zones += '</div>';
+  panel.innerHTML = zones;
+
+  // Signals
+  renderPanel(sig.longScore,  'LONG',  sig.longItems,  'longCard',  'longHeader',  'longItems');
+  renderPanel(sig.shortScore, 'SHORT', sig.shortItems, 'shortCard', 'shortHeader', 'shortItems');
+
+  // Flags
+  const fw = document.getElementById('flagsWrap');
+  if (sig.redFlags.length) {
+    fw.classList.remove('hidden');
+    document.getElementById('flags').innerHTML = sig.redFlags.map(f=>`<div class="flag">⚠ ${f}</div>`).join('');
+  } else { fw.classList.add('hidden'); }
+
+  startCountdown();
+}
+
+// ── REFRESH COUNTDOWN ─────────────────────────────────────────────────────────
+function startCountdown() {
+  if (cdTimer) clearInterval(cdTimer);
+  cdVal = REFRESH;
+  const bar = document.getElementById('refreshBar');
+  const cd  = document.getElementById('countdown');
+  cdTimer = setInterval(() => {
+    cdVal = Math.max(0, cdVal - 0.1);
+    bar.style.width = (cdVal / REFRESH * 100) + '%';
+    cd.textContent  = Math.ceil(cdVal);
+    if (cdVal <= 0) clearInterval(cdTimer);
+  }, 100);
+}
+
+// ── MAIN FETCH LOOP ───────────────────────────────────────────────────────────
+async function fetchData() {
+  try {
+    const [c1m, c5m, c15m, ticker] = await Promise.all([
+      fetchKlines(SYMBOL, '1',  150),
+      fetchKlines(SYMBOL, '5',  150),
+      fetchKlines(SYMBOL, '15', 100),
+      fetchTicker(SYMBOL),
+    ]);
+    const { supports, resistances } = findSR(c5m);
+    const sig = analyse(c1m, c5m, c15m);
+    render(sig, supports, resistances, ticker);
+  } catch(e) {
+    document.getElementById('errorMsg').textContent = '⚠ ' + e.message;
+    console.error(e);
+  }
+}
+
+fetchData();
+fetchTimer = setInterval(fetchData, REFRESH * 1000);
+</script>
+</body>
+</html>
