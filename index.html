@@ -975,7 +975,13 @@ function renderPanel(score, side, items, cardId, headId, itemsId) {
       <span class="score-badge" style="${bStyle}">${score.toFixed(1)} / 4</span>
     </div>
     <div class="score-track"><div class="score-fill fill-${color}" style="width:${pct}%"></div></div>`;
-  document.getElementById(itemsId).innerHTML = items.map(([ok,t])=>sigItem(ok,t)).join('');
+  const metItems   = items.filter(([ok]) => ok);
+  const unmetItems = items.filter(([ok]) => !ok);
+  // Show all met conditions + the single highest-value unmet condition (what's needed next)
+  const displayed  = score >= 3.5
+    ? items                                          // FIRE: show everything
+    : [...metItems, ...(unmetItems.length ? [unmetItems[0]] : [])];
+  document.getElementById(itemsId).innerHTML = displayed.map(([ok,t])=>sigItem(ok,t)).join('');
 }
 
 function render(sig, supports, resistances, ticker) {
@@ -1246,40 +1252,26 @@ function render(sig, supports, resistances, ticker) {
   }
 
   const panel = document.getElementById('obfvgPanel');
-  let zones = '<div class="obfvg-grid">';
+  let zoneHtml = '';
 
-  // Bearish OB (supply above)
   if (sig.sOB) {
     const label = sig.sOB.mitigated ? 'MITIGATED' : 'FRESH';
-    zones += obfvgZone('Bearish OB · Supply', 'supply', sig.sOB.high, sig.sOB.mid, sig.sOB.low, sig.price, label);
-  } else {
-    zones += emptyZone('No bearish OB detected');
+    zoneHtml += obfvgZone('Bearish OB · Supply', 'supply', sig.sOB.high, sig.sOB.mid, sig.sOB.low, sig.price, label);
   }
-
-  // Bearish FVG (supply above)
   if (sig.sFVG) {
-    zones += obfvgZone('Bearish FVG · Supply', 'fvg-s', sig.sFVG.top, sig.sFVG.mid, sig.sFVG.bot, sig.price, 'CE');
-  } else {
-    zones += emptyZone('No bearish FVG detected');
+    zoneHtml += obfvgZone('Bearish FVG · Supply', 'fvg-s', sig.sFVG.top, sig.sFVG.mid, sig.sFVG.bot, sig.price, 'CE');
   }
-
-  // Bullish FVG (demand below)
   if (sig.bFVG) {
-    zones += obfvgZone('Bullish FVG · Demand', 'fvg-b', sig.bFVG.top, sig.bFVG.mid, sig.bFVG.bot, sig.price, 'CE');
-  } else {
-    zones += emptyZone('No bullish FVG detected');
+    zoneHtml += obfvgZone('Bullish FVG · Demand', 'fvg-b', sig.bFVG.top, sig.bFVG.mid, sig.bFVG.bot, sig.price, 'CE');
   }
-
-  // Bullish OB (demand below)
   if (sig.bOB) {
     const label = sig.bOB.mitigated ? 'MITIGATED' : 'FRESH';
-    zones += obfvgZone('Bullish OB · Demand', 'demand', sig.bOB.high, sig.bOB.mid, sig.bOB.low, sig.price, label);
-  } else {
-    zones += emptyZone('No bullish OB detected');
+    zoneHtml += obfvgZone('Bullish OB · Demand', 'demand', sig.bOB.high, sig.bOB.mid, sig.bOB.low, sig.price, label);
   }
 
-  zones += '</div>';
-  panel.innerHTML = zones;
+  panel.innerHTML = zoneHtml
+    ? `<div class="obfvg-grid">${zoneHtml}</div>`
+    : `<div style="color:var(--muted2);font-size:11px;padding:4px 0">No active OB or FVG detected</div>`;
 
   // Signals
   renderPanel(sig.longScore,  'LONG',  sig.longItems,  'longCard',  'longHeader',  'longItems');
