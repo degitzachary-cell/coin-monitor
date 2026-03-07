@@ -642,8 +642,8 @@ function calcMACD(closes, fast=12, slow=26, signal=9) {
 
 function calcVolSpike(volumes, lookback=20) {
   const out = new Array(volumes.length).fill(NaN);
-  for (let i = lookback; i < volumes.length; i++) {
-    const avg = volumes.slice(i - lookback, i).reduce((a,b)=>a+b,0) / lookback;
+  for (let i = lookback - 1; i < volumes.length; i++) {
+    const avg = volumes.slice(i - lookback + 1, i + 1).reduce((a,b)=>a+b,0) / lookback;
     out[i] = avg === 0 ? 1 : volumes[i] / avg;
   }
   return out;
@@ -877,10 +877,10 @@ function analyse(c1m, c5m, c15m, c1h) {
   } else {
     shortItems.push([false, `Volume ${vs5m.toFixed(1)}x 5m avg  (need ≥ 2x)`]);
   }
-  if (mh < mhp && Math.abs(mh - mhp) > 0.0005) {
-    shortScore += 0.25; shortItems.push([true,  `MACD hist falling  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
+  if (mh < 0 && mh < mhp && Math.abs(mh - mhp) > 0.0005) {
+    shortScore += 0.5; shortItems.push([true,  `MACD negative & falling  [${mh.toFixed(4)}]`]);
   } else {
-    shortItems.push([false, `MACD hist flat/rising  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
+    shortItems.push([false, `MACD hist: ${mh >= 0 ? '+' : ''}${mh.toFixed(4)}  (need negative & falling)`]);
   }
   if (nearResistance || nearBreakout) {
     shortScore += 0.5; shortItems.push([true,  `At session resistance $${nearBreakout ? SESSION_LEVELS.breakout : SESSION_LEVELS.resistance1} ⚡`]);
