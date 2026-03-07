@@ -593,8 +593,8 @@ function calcMACD(closes, fast=12, slow=26, signal=9) {
 
 function calcVolSpike(volumes, lookback=20) {
   const out = new Array(volumes.length).fill(NaN);
-  for (let i = lookback; i < volumes.length; i++) {
-    const avg = volumes.slice(i - lookback, i).reduce((a,b)=>a+b,0) / lookback;
+  for (let i = lookback - 1; i < volumes.length; i++) {
+    const avg = volumes.slice(i - lookback + 1, i + 1).reduce((a,b)=>a+b,0) / lookback;
     out[i] = avg === 0 ? 1 : volumes[i] / avg;
   }
   return out;
@@ -633,13 +633,13 @@ function findFVGs(candles, price, lookback = 60) {
     // Bullish FVG: c3.low > c1.high — gap between c1 top and c3 bottom
     if (c3.low > c1.high) {
       const top = c3.low, bot = c1.high, mid = (top + bot) / 2;
-      const filled = price < top; // price has entered the gap from above (touched top edge)
+      const filled = price < bot; // price has traded back into or below gap
       bullish.push({ top, bot, mid, filled });
     }
     // Bearish FVG: c3.high < c1.low — gap between c1 bottom and c3 top
     if (c3.high < c1.low) {
       const top = c1.low, bot = c3.high, mid = (top + bot) / 2;
-      const filled = price > bot; // price has entered the gap from below (touched bottom edge)
+      const filled = price > top; // price has traded back into or above gap
       bearish.push({ top, bot, mid, filled });
     }
   }
@@ -800,15 +800,10 @@ function analyse(c1m, c5m, c15m) {
   } else {
     shortItems.push([false, 'No rejection candle 1m — wait']);
   }
-  if (vs >= 2) {
-    shortScore += 0.5; shortItems.push([true,  `Volume spike ${vs.toFixed(1)}x — distribution`]);
+  if (mh < 0 && mh < mhp) {
+    shortScore += 0.5; shortItems.push([true,  `MACD negative & falling  [${mh.toFixed(4)}]`]);
   } else {
-    shortItems.push([false, `Volume ${vs.toFixed(1)}x avg  (need ≥ 2x)`]);
-  }
-  if (mh < mhp) {
-    shortScore += 0.25; shortItems.push([true,  `MACD hist falling  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
-  } else {
-    shortItems.push([false, `MACD hist rising  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
+    shortItems.push([false, `MACD hist: ${mh >= 0 ? '+' : ''}${mh.toFixed(4)}`]);
   }
   if (nearResistance || nearBreakout) {
     shortScore += 0.5; shortItems.push([true,  `At session resistance $${nearBreakout ? SESSION_LEVELS.breakout : SESSION_LEVELS.resistance1} ⚡`]);
