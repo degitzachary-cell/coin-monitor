@@ -328,10 +328,25 @@ body {
   <label>Refresh (s)</label>
   <input id="cfgRefresh" type="number" value="10" min="5" max="60" style="width:55px">
   <button onclick="applyConfig()">APPLY</button>
+  <button onclick="toggleLevels()" style="background:var(--border);color:var(--muted2)">LEVELS</button>
   <span id="errorMsg"></span>
   <span style="margin-left:auto; color:var(--muted2); font-size:10px; letter-spacing:1px">
     <span class="dot"></span>LIVE · <span id="countdown">10</span>s
   </span>
+</div>
+<!-- Editable session levels panel -->
+<div id="levelsPanel" style="display:none; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:8px; display:none">
+  <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center">
+    <label style="color:var(--muted2); font-size:10px">Session Low</label>
+    <input id="lvlLow" type="number" step="0.01" value="82.43" style="width:70px">
+    <label style="color:var(--muted2); font-size:10px">Support</label>
+    <input id="lvlSup" type="number" step="0.01" value="86.26" style="width:70px">
+    <label style="color:var(--muted2); font-size:10px">Resistance</label>
+    <input id="lvlRes" type="number" step="0.01" value="88.09" style="width:70px">
+    <label style="color:var(--muted2); font-size:10px">Breakout</label>
+    <input id="lvlBrk" type="number" step="0.01" value="90.68" style="width:70px">
+    <button onclick="applyLevels()">SET</button>
+  </div>
 </div>
 
 <div id="refreshWrap"><div id="refreshBar" style="width:100%"></div></div>
@@ -433,6 +448,26 @@ body {
     </div>
   </div>
 
+  <!-- Perp Data Strip -->
+  <div class="session-banner" id="perpStrip" style="margin-bottom:10px">
+    <div class="sb-item">
+      <div class="sb-label">Funding Rate</div>
+      <div id="pFunding" class="sb-val cyan">—</div>
+    </div>
+    <div class="sb-item">
+      <div class="sb-label">Next Funding</div>
+      <div id="pFundingTime" class="sb-val cyan">—</div>
+    </div>
+    <div class="sb-item">
+      <div class="sb-label">Mark Price</div>
+      <div id="pMark" class="sb-val cyan">—</div>
+    </div>
+    <div class="sb-item">
+      <div class="sb-label">Open Interest</div>
+      <div id="pOI" class="sb-val cyan">—</div>
+    </div>
+  </div>
+
   <!-- Indicators -->
   <div class="card" style="margin-bottom:10px">
     <div class="card-title">Indicators</div>
@@ -443,7 +478,7 @@ body {
   <div class="row3">
     <div class="card"><div class="card-title">Key Levels</div><div id="levels"></div></div>
     <div class="card"><div class="card-title">MACD · 5m</div><div id="macd"></div></div>
-    <div class="card"><div class="card-title">Volume · 1m</div><div id="volume"></div></div>
+    <div class="card"><div class="card-title">Volume · 5m</div><div id="volume"></div></div>
   </div>
 
   <!-- OB / FVG Card -->
@@ -481,6 +516,7 @@ body {
 let SYMBOL  = 'SOLUSDT';
 let REFRESH = 10;
 let cdTimer = null, fetchTimer = null, cdVal = 10;
+let prevOI  = null; // track OI direction cycle-to-cycle
 
 // Session key levels (editable)
 const SESSION_LEVELS = {
@@ -498,6 +534,19 @@ function applyConfig() {
   if (fetchTimer) clearInterval(fetchTimer);
   fetchData();
   fetchTimer = setInterval(fetchData, REFRESH * 1000);
+}
+
+function toggleLevels() {
+  const p = document.getElementById('levelsPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+function applyLevels() {
+  SESSION_LEVELS.sessionLow   = parseFloat(document.getElementById('lvlLow').value) || SESSION_LEVELS.sessionLow;
+  SESSION_LEVELS.support1     = parseFloat(document.getElementById('lvlSup').value) || SESSION_LEVELS.support1;
+  SESSION_LEVELS.resistance1  = parseFloat(document.getElementById('lvlRes').value) || SESSION_LEVELS.resistance1;
+  SESSION_LEVELS.breakout     = parseFloat(document.getElementById('lvlBrk').value) || SESSION_LEVELS.breakout;
+  document.getElementById('levelsPanel').style.display = 'none';
 }
 
 // ── BYBIT API ─────────────────────────────────────────────────────────────────
@@ -648,13 +697,15 @@ function findFVGs(candles, price, lookback = 60) {
     // Bullish FVG: c3.low > c1.high — gap between c1 top and c3 bottom
     if (c3.low > c1.high) {
       const top = c3.low, bot = c1.high, mid = (top + bot) / 2;
-      const filled = price < top; // price has entered the gap from above (touched top edge)
+      // Filled when price reaches CE (midpoint) — zone stays active while price reacts in upper half
+      const filled = price < mid;
       bullish.push({ top, bot, mid, filled });
     }
     // Bearish FVG: c3.high < c1.low — gap between c1 bottom and c3 top
     if (c3.high < c1.low) {
       const top = c1.low, bot = c3.high, mid = (top + bot) / 2;
-      const filled = price > bot; // price has entered the gap from below (touched bottom edge)
+      // Filled when price reaches CE (midpoint) — zone stays active while price reacts in lower half
+      const filled = price > mid;
       bearish.push({ top, bot, mid, filled });
     }
   }
@@ -679,9 +730,10 @@ function findOBs(candles, price, lookback = 80) {
       const displacement = (moveUp - c.high) / c.high;
       if (displacement > 0.004) { // at least 0.4% move away
         const ob = { high: c.high, low: c.low, mid: (c.high + c.low) / 2 };
-        // Check if mitigated (price has returned to zone since OB formed)
+        // Mitigated only when a subsequent candle CLOSES below the OB low (full invalidation)
+        // A wick touch is a reaction from the OB, not mitigation
         const subsequent = slice.slice(i + 1);
-        const mitigated = subsequent.some(x => x.low <= ob.high && x.low >= ob.low);
+        const mitigated = subsequent.some(x => x.close < ob.low);
         bullOBs.push({ ...ob, mitigated });
       }
     }
@@ -692,7 +744,8 @@ function findOBs(candles, price, lookback = 80) {
       if (displacement > 0.004) {
         const ob = { high: c.high, low: c.low, mid: (c.high + c.low) / 2 };
         const subsequent = slice.slice(i + 1);
-        const mitigated = subsequent.some(x => x.high >= ob.low && x.high <= ob.high);
+        // Mitigated only when a subsequent candle CLOSES above the OB high
+        const mitigated = subsequent.some(x => x.close > ob.high);
         bearOBs.push({ ...ob, mitigated });
       }
     }
@@ -705,7 +758,7 @@ function findOBs(candles, price, lookback = 80) {
 }
 
 // ── SIGNAL ENGINE ─────────────────────────────────────────────────────────────
-function analyse(c1m, c5m, c15m) {
+function analyse(c1m, c5m, c15m, c1h) {
   const cl = arr => arr.map(c => c.close);
   const last = arr => arr[arr.length-1];
   const prev = arr => arr[arr.length-2];
@@ -720,6 +773,7 @@ function analyse(c1m, c5m, c15m) {
   const bb5   = calcBB(cl(c5m));
   const srsi5 = calcStochRSI(cl(c5m));
   const mac5  = calcMACD(cl(c5m));
+  const vspk5 = calcVolSpike(c5m.map(c=>c.volume));
   const k5  = last(srsi5.k.filter(v=>!isNaN(v)));
   const d5  = last(srsi5.d.filter(v=>!isNaN(v)));
   const k5p = prev(srsi5.k.filter(v=>!isNaN(v))) ?? NaN;
@@ -730,19 +784,37 @@ function analyse(c1m, c5m, c15m) {
   const mhp   = prev(mac5.hist.filter(v=>!isNaN(v)));
   const ml    = last(mac5.line.filter(v=>!isNaN(v)));
   const ms    = last(mac5.sig.filter(v=>!isNaN(v)));
+  // 5m volume spike — aligned with 5m BB + StochRSI signals
+  const vs5m  = last(vspk5.filter(v=>!isNaN(v)));
 
+  // 15m trend: price vs EMA(10) on 15m — more stable than 5-bar close compare
   const cl15 = cl(c15m);
-  const trend15 = cl15[cl15.length-1] > cl15[cl15.length-6] ? 'BULLISH' : 'BEARISH';
+  const ema15 = ema(cl15, 10);
+  const lastEma15 = last(ema15.filter(v=>!isNaN(v)));
+  const trend15 = cl15[cl15.length-1] > lastEma15 ? 'BULLISH' : 'BEARISH';
+
+  // 1H trend: price vs EMA(20) on 1H — higher timeframe structural bias
+  const cl1h = cl(c1h);
+  const ema1h = ema(cl1h, 20);
+  const lastEma1h = last(ema1h.filter(v=>!isNaN(v)));
+  const trend1h = cl1h[cl1h.length-1] > lastEma1h ? 'BULLISH' : 'BEARISH';
 
   const price   = last(c1m).close;
   const l1open  = last(c1m).open;
   const p1close = prev(c1m).close;
   const p1open  = prev(c1m).open;
 
-  // Bounce: green candle after red, with minimum body size (0.15% of price)
-  const minBody   = price * 0.0015;
+  // Bounce: green candle after red, minimum body 0.25% of price (raised from 0.15% to cut noise)
+  const minBody   = price * 0.0025;
   const bounce    = price > l1open && (price - l1open) >= minBody && p1close < p1open;
   const rejection = price < l1open && (l1open - price) >= minBody && p1close > p1open;
+
+  // Liquidity sweep detection: price broke above/below a recent swing high/low then closed back
+  // Sweep up then back: high > 3-bar high but close < that high — potential stop hunt
+  const h3max = Math.max(...c1m.slice(-5, -1).map(c => c.high));
+  const l3min  = Math.min(...c1m.slice(-5, -1).map(c => c.low));
+  const sweepUp   = last(c1m).high > h3max && last(c1m).close < h3max; // wick above, closed back
+  const sweepDown = last(c1m).low  < l3min  && last(c1m).close > l3min; // wick below, closed back
 
   // Session level proximity check
   const nearSupport   = Math.abs(price - SESSION_LEVELS.support1) / price < 0.005;
@@ -753,7 +825,7 @@ function analyse(c1m, c5m, c15m) {
   const longItems = [];
   let   longScore = 0;
 
-  if (price <= bbLo * 1.002) {
+  if (price <= bbLo * 1.001) {
     longScore += 1; longItems.push([true,  `Price at/below lower BB [${fmt(bbLo,2)}]`]);
   } else {
     longItems.push([false, `Price above lower BB — need ≤ ${fmt(bbLo,2)}`]);
@@ -766,20 +838,20 @@ function analyse(c1m, c5m, c15m) {
   } else {
     longItems.push([false, `Stoch RSI 5m = ${k5.toFixed(1)}  (need K cross above D from oversold)`]);
   }
-  if (vs >= 2) {
-    longScore += 1; longItems.push([true,  `Volume spike ${vs.toFixed(1)}x — capitulation`]);
+  if (vs5m >= 2) {
+    longScore += 1; longItems.push([true,  `Volume spike ${vs5m.toFixed(1)}x 5m — capitulation`]);
   } else {
-    longItems.push([false, `Volume ${vs.toFixed(1)}x avg  (need ≥ 2x)`]);
+    longItems.push([false, `Volume ${vs5m.toFixed(1)}x 5m avg  (need ≥ 2x)`]);
   }
   if (bounce) {
     longScore += 1; longItems.push([true,  'Bounce candle 1m  [green after red ✓]']);
   } else {
     longItems.push([false, 'No bounce candle 1m — wait for reversal']);
   }
-  if (mh > mhp) {
+  if (mh > mhp && Math.abs(mh - mhp) > 0.0005) {
     longScore += 0.25; longItems.push([true,  `MACD hist rising  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
   } else {
-    longItems.push([false, `MACD hist falling  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
+    longItems.push([false, `MACD hist flat/falling  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
   }
   if (nearSupport) {
     longScore += 0.5; longItems.push([true,  `At session support $${SESSION_LEVELS.support1} ⚡`]);
@@ -792,7 +864,7 @@ function analyse(c1m, c5m, c15m) {
   const shortItems = [];
   let   shortScore = 0;
 
-  if (price >= bbHi * 0.998) {
+  if (price >= bbHi * 0.999) {
     shortScore += 1; shortItems.push([true,  `Price at/above upper BB [${fmt(bbHi,2)}]`]);
   } else {
     shortItems.push([false, `Price below upper BB — need ≥ ${fmt(bbHi,2)}`]);
@@ -815,15 +887,15 @@ function analyse(c1m, c5m, c15m) {
   } else {
     shortItems.push([false, 'No rejection candle 1m — wait']);
   }
-  if (vs >= 2) {
-    shortScore += 0.5; shortItems.push([true,  `Volume spike ${vs.toFixed(1)}x — distribution`]);
+  if (vs5m >= 2) {
+    shortScore += 0.5; shortItems.push([true,  `Volume spike ${vs5m.toFixed(1)}x 5m — distribution`]);
   } else {
-    shortItems.push([false, `Volume ${vs.toFixed(1)}x avg  (need ≥ 2x)`]);
+    shortItems.push([false, `Volume ${vs5m.toFixed(1)}x 5m avg  (need ≥ 2x)`]);
   }
-  if (mh < mhp) {
+  if (mh < mhp && Math.abs(mh - mhp) > 0.0005) {
     shortScore += 0.25; shortItems.push([true,  `MACD hist falling  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
   } else {
-    shortItems.push([false, `MACD hist rising  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
+    shortItems.push([false, `MACD hist flat/rising  [${mh >= 0 ? '+' : ''}${mh.toFixed(4)}]`]);
   }
   if (nearResistance || nearBreakout) {
     shortScore += 0.5; shortItems.push([true,  `At session resistance $${nearBreakout ? SESSION_LEVELS.breakout : SESSION_LEVELS.resistance1} ⚡`]);
@@ -842,8 +914,16 @@ function analyse(c1m, c5m, c15m) {
     redFlags.push('LONG signal BUT 15m trend is BEARISH — reduce size or skip');
   if (trend15 === 'BULLISH' && shortScore >= 3)
     redFlags.push('SHORT signal BUT 15m trend is BULLISH — reduce size or skip');
+  if (trend1h === 'BEARISH' && longScore >= 3)
+    redFlags.push('LONG signal BUT 1H trend is BEARISH — strong HTF headwind, lower conviction');
+  if (trend1h === 'BULLISH' && shortScore >= 3)
+    redFlags.push('SHORT signal BUT 1H trend is BULLISH — strong HTF headwind, lower conviction');
   if (price > SESSION_LEVELS.breakout * 0.998 && price < SESSION_LEVELS.breakout * 1.002)
     redFlags.push(`Price at major breakout level $${SESSION_LEVELS.breakout} — wait for confirmed break or rejection`);
+  if (sweepUp)
+    redFlags.push('Liquidity sweep UP detected — wick above recent highs then closed back, watch for short reversal');
+  if (sweepDown)
+    redFlags.push('Liquidity sweep DOWN detected — wick below recent lows then closed back, watch for long reversal');
 
   const { bFVG, sFVG } = findFVGs(c15m, price);
   const { bOB,  sOB  } = findOBs(c15m,  price);
@@ -857,10 +937,12 @@ function analyse(c1m, c5m, c15m) {
   }, 0) / recentBars.length;
 
   return {
-    price, trend15, bbLo, bbMid, bbHi, k1, d1, k5, d5, vs,
+    price, trend15, trend1h, bbLo, bbMid, bbHi, k1, d1, k5, d5,
+    vs: vs5m, vs1m: vs,   // vs = 5m for scoring; vs1m = 1m for display reference
     macd: ml, macdSig: ms, macdHist: mh,
     longScore, longItems, shortScore, shortItems, redFlags,
     bFVG, sFVG, bOB, sOB, bodyQuality,
+    sweepUp, sweepDown,
   };
 }
 
@@ -919,6 +1001,36 @@ function render(sig, supports, resistances, ticker) {
   const chg = parseFloat(ticker.price24hPcnt||0) * 100;
   const up  = chg >= 0;
 
+  // ── PERP DATA (already in ticker, just unused before) ─────────────────────────
+  const fundingRate    = parseFloat(ticker.fundingRate    || 0) * 100; // as %
+  const markPrice      = parseFloat(ticker.markPrice      || 0);
+  const openInterest   = parseFloat(ticker.openInterestValue || 0);    // in USDT
+  const nextFundingMs  = parseInt(ticker.nextFundingTime  || 0);
+  const minToFunding   = Math.max(0, Math.round((nextFundingMs - Date.now()) / 60000));
+
+  // OI direction vs last cycle
+  const oiDir = prevOI === null ? '' : openInterest > prevOI ? ' ▲' : openInterest < prevOI ? ' ▼' : '';
+  prevOI = openInterest;
+
+  const fundingColor = fundingRate > 0.05 ? 'var(--red)' : fundingRate < -0.05 ? 'var(--green)' : 'var(--cyan)';
+  document.getElementById('pFunding').innerHTML =
+    `<span style="color:${fundingColor}">${fundingRate >= 0 ? '+' : ''}${fundingRate.toFixed(4)}%</span>`;
+  document.getElementById('pFundingTime').textContent = `${minToFunding}m`;
+  document.getElementById('pMark').textContent = '$' + fmt(markPrice);
+  const oiM = openInterest >= 1e9
+    ? (openInterest / 1e9).toFixed(2) + 'B'
+    : (openInterest / 1e6).toFixed(1) + 'M';
+  const oiColor = oiDir === ' ▲' ? 'var(--green)' : oiDir === ' ▼' ? 'var(--red)' : 'var(--cyan)';
+  document.getElementById('pOI').innerHTML = `<span style="color:${oiColor}">$${oiM}${oiDir}</span>`;
+
+  // Funding rate red flag (injected into sig.redFlags before render)
+  if (fundingRate > 0.05)
+    sig.redFlags.unshift(`Funding +${fundingRate.toFixed(4)}% — longs being squeezed every 8h, long signals carry higher reversal risk`);
+  if (fundingRate < -0.05)
+    sig.redFlags.unshift(`Funding ${fundingRate.toFixed(4)}% — shorts being squeezed every 8h, short signals carry higher reversal risk`);
+  if (minToFunding <= 10)
+    sig.redFlags.unshift(`Funding payment in ${minToFunding}m — avoid new entries, market may spike then reverse`);
+
   // Update 24h high/low in session banner
   document.getElementById('s24hHigh').textContent = '$' + fmt(ticker.highPrice24h);
   document.getElementById('s24hLow').textContent  = '$' + fmt(ticker.lowPrice24h);
@@ -946,6 +1058,9 @@ function render(sig, supports, resistances, ticker) {
   // 15m trend nudge
   if (sig.trend15 === 'BULLISH') bias += 0.08;
   if (sig.trend15 === 'BEARISH') bias -= 0.08;
+  // 1H trend nudge — stronger weight as HTF context
+  if (sig.trend1h === 'BULLISH') bias += 0.12;
+  if (sig.trend1h === 'BEARISH') bias -= 0.12;
 
   bias = Math.max(-1, Math.min(1, bias));
   const biasPct   = Math.round(bias * 100);
@@ -1019,10 +1134,14 @@ function render(sig, supports, resistances, ticker) {
   document.getElementById('hChange').className = 'h-badge ' + (up?'up':'down');
   document.getElementById('hMeta').innerHTML =
     `24h &nbsp;<span class="green">$${fmt(ticker.highPrice24h)}</span> / <span class="red">$${fmt(ticker.lowPrice24h)}</span> &nbsp;·&nbsp; Turnover ${parseFloat(ticker.turnover24h||0).toLocaleString('en-US',{maximumFractionDigits:0})}`;
+  const t15html = sig.trend15 === 'BULLISH'
+    ? '<span class="green">▲ BULL</span>'
+    : '<span class="red">▼ BEAR</span>';
+  const t1hhtml = sig.trend1h === 'BULLISH'
+    ? '<span class="green">▲ BULL</span>'
+    : '<span class="red">▼ BEAR</span>';
   document.getElementById('hTrend').innerHTML =
-    sig.trend15 === 'BULLISH'
-      ? '<span class="green">▲ BULL</span> <span class="muted" style="font-size:11px">15m</span>'
-      : '<span class="red">▼ BEAR</span> <span class="muted" style="font-size:11px">15m</span>';
+    `${t15html} <span class="muted" style="font-size:10px">15m</span>&nbsp;&nbsp;${t1hhtml} <span class="muted" style="font-size:10px">1H</span>`;
   document.getElementById('hTime').textContent = new Date().toLocaleTimeString();
 
   // Indicators
@@ -1045,13 +1164,13 @@ function render(sig, supports, resistances, ticker) {
     <div class="big-sub">Line ${sig.macd.toFixed(4)} &nbsp;·&nbsp; Sig ${sig.macdSig.toFixed(4)}</div>
     <span class="${mc}" style="font-size:10px;letter-spacing:1px">${mh>0?'RISING — BULLISH':'FALLING — BEARISH'}</span>`;
 
-  // Volume
+  // Volume (5m for signal scoring)
   const vs  = sig.vs;
   const vc  = vs >= 2 ? 'yellow' : 'cyan';
   const vp  = Math.min(100, vs / 5 * 100);
   document.getElementById('volume').innerHTML = `
     <div class="big-num ${vc}">${vs.toFixed(2)}x</div>
-    <div class="big-sub">vs 20-bar avg</div>
+    <div class="big-sub">vs 20-bar 5m avg</div>
     ${barHTML(vp, vc, 7)}
     <div class="${vc}" style="font-size:10px;margin-top:6px;letter-spacing:1px">${vs>=2?'⚡ SPIKE':'NORMAL'}</div>`;
 
@@ -1209,14 +1328,15 @@ function startCountdown() {
 // ── MAIN FETCH LOOP ───────────────────────────────────────────────────────────
 async function fetchData() {
   try {
-    const [c1m, c5m, c15m, ticker] = await Promise.all([
+    const [c1m, c5m, c15m, c1h, ticker] = await Promise.all([
       fetchKlines(SYMBOL, '1',  150),
       fetchKlines(SYMBOL, '5',  150),
       fetchKlines(SYMBOL, '15', 100),
+      fetchKlines(SYMBOL, '60', 50),
       fetchTicker(SYMBOL),
     ]);
     const { supports, resistances } = findSR(c5m);
-    const sig = analyse(c1m, c5m, c15m);
+    const sig = analyse(c1m, c5m, c15m, c1h);
     render(sig, supports, resistances, ticker);
   } catch(e) {
     document.getElementById('errorMsg').textContent = '⚠ ' + e.message;
