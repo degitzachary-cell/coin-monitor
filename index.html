@@ -290,19 +290,6 @@ body {
 .bold   { font-weight:700; }
 .hidden { display:none; }
 
-/* Loading */
-#loading {
-  display:flex; align-items:center; justify-content:center;
-  height:120px; flex-direction:column; gap:10px; color:var(--muted2); font-size:12px;
-}
-.spinner {
-  width:28px; height:28px;
-  border:2px solid var(--border);
-  border-top-color:var(--cyan);
-  border-radius:50%;
-  animation:spin .8s linear infinite;
-}
-@keyframes spin { to { transform:rotate(360deg); } }
 
 /* Error */
 #errorMsg { color:var(--red); font-size:11px; }
@@ -364,9 +351,7 @@ body {
   </div>
 </div>
 
-<div id="loading"><div class="spinner"></div></div>
-
-<div id="dashboard" class="hidden">
+<div id="dashboard">
 
   <div class="header">
     <div>
@@ -994,8 +979,7 @@ function renderPanel(score, side, items, cardId, headId, itemsId) {
 }
 
 function render(sig, supports, resistances, ticker) {
-  document.getElementById('loading').classList.add('hidden');
-  document.getElementById('dashboard').classList.remove('hidden');
+  document.getElementById('dashboard').style.display = '';
   document.getElementById('errorMsg').textContent = '';
 
   const chg = parseFloat(ticker.price24hPcnt||0) * 100;
