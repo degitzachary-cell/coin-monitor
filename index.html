@@ -288,7 +288,7 @@ body {
 .purple { color:var(--purple); }
 .muted  { color:var(--muted2); }
 .bold   { font-weight:700; }
-.hidden { display:none; }
+.hidden { display:none !important; }
 
 
 /* Error */
@@ -1359,8 +1359,8 @@ async function fetchData() {
     const sig = analyse(c1m, c5m, c15m, c1h);
     render(sig, supports, resistances, ticker);
   } catch(e) {
-    document.getElementById('loading').classList.add('hidden');
-    document.getElementById('dashboard').classList.remove('hidden');
+    const loading = document.getElementById('loading');
+    if (loading) loading.classList.add('hidden');
     document.getElementById('errorMsg').textContent = '⚠ ' + e.message;
     console.error(e);
   }
