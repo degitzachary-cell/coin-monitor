@@ -409,19 +409,19 @@ body {
   <div class="session-banner">
     <div class="sb-item">
       <div class="sb-label">Session Low</div>
-      <div class="sb-val green">$82.43</div>
+      <div class="sb-val green" id="sbLow">$82.43</div>
     </div>
     <div class="sb-item">
       <div class="sb-label">Support</div>
-      <div class="sb-val green">$86.26</div>
+      <div class="sb-val green" id="sbSup">$86.26</div>
     </div>
     <div class="sb-item">
       <div class="sb-label">Resistance</div>
-      <div class="sb-val red">$88.09</div>
+      <div class="sb-val red" id="sbRes">$88.09</div>
     </div>
     <div class="sb-item">
       <div class="sb-label">Major Breakout</div>
-      <div class="sb-val yellow">$90.68</div>
+      <div class="sb-val yellow" id="sbBrk">$90.68</div>
     </div>
     <div class="sb-item">
       <div class="sb-label">24h High</div>
@@ -450,6 +450,26 @@ body {
     <div class="sb-item">
       <div class="sb-label">Open Interest</div>
       <div id="pOI" class="sb-val cyan">—</div>
+    </div>
+  </div>
+
+  <!-- Context Strip: BTC correlation, OI trend, BB squeeze, round level -->
+  <div class="session-banner" id="contextStrip" style="margin-bottom:10px">
+    <div class="sb-item">
+      <div class="sb-label">BTC Context</div>
+      <div id="cBTC" class="sb-val">—</div>
+    </div>
+    <div class="sb-item">
+      <div class="sb-label">OI Trend</div>
+      <div id="cOI" class="sb-val">—</div>
+    </div>
+    <div class="sb-item">
+      <div class="sb-label">BB State</div>
+      <div id="cBB" class="sb-val">—</div>
+    </div>
+    <div>
+      <div class="sb-label">Round Level</div>
+      <div id="cRnd" class="sb-val">—</div>
     </div>
   </div>
 
@@ -567,6 +587,11 @@ function applyLevels() {
   SESSION_LEVELS.support1     = parseFloat(document.getElementById('lvlSup').value) || SESSION_LEVELS.support1;
   SESSION_LEVELS.resistance1  = parseFloat(document.getElementById('lvlRes').value) || SESSION_LEVELS.resistance1;
   SESSION_LEVELS.breakout     = parseFloat(document.getElementById('lvlBrk').value) || SESSION_LEVELS.breakout;
+  // Update session banner to reflect new values immediately
+  document.getElementById('sbLow').textContent = '$' + fmt(SESSION_LEVELS.sessionLow);
+  document.getElementById('sbSup').textContent = '$' + fmt(SESSION_LEVELS.support1);
+  document.getElementById('sbRes').textContent = '$' + fmt(SESSION_LEVELS.resistance1);
+  document.getElementById('sbBrk').textContent = '$' + fmt(SESSION_LEVELS.breakout);
   document.getElementById('levelsPanel').style.display = 'none';
 }
 
@@ -591,6 +616,21 @@ async function fetchTicker(symbol) {
   const r = await fetch(url);
   const d = await r.json();
   return d.result?.list?.[0] || {};
+}
+
+async function fetchFundingHistory(symbol, limit = 8) {
+  const url = `https://api.bybit.com/v5/market/funding/history?category=linear&symbol=${symbol}&limit=${limit}`;
+  const r = await fetch(url);
+  const d = await r.json();
+  return (d.result?.list || []).map(x => parseFloat(x.fundingRate) * 100); // as %
+}
+
+async function fetchOIHistory(symbol, limit = 12) {
+  const url = `https://api.bybit.com/v5/market/open-interest?category=linear&symbol=${symbol}&intervalTime=5min&limit=${limit}`;
+  const r = await fetch(url);
+  const d = await r.json();
+  // API returns newest first — reverse to get oldest→newest
+  return (d.result?.list || []).slice().reverse().map(x => parseFloat(x.openInterest));
 }
 
 // ── INDICATORS ────────────────────────────────────────────────────────────────
@@ -779,7 +819,7 @@ function findOBs(candles, price, lookback = 80) {
 }
 
 // ── SIGNAL ENGINE ─────────────────────────────────────────────────────────────
-function analyse(c1m, c5m, c15m, c1h) {
+function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = []) {
   const cl = arr => arr.map(c => c.close);
   const last = arr => arr[arr.length-1];
   const prev = arr => arr[arr.length-2];
@@ -808,6 +848,16 @@ function analyse(c1m, c5m, c15m, c1h) {
   // 5m volume spike — aligned with 5m BB + StochRSI signals
   const vs5m  = last(vspk5.filter(v=>!isNaN(v)));
 
+  // BB squeeze: track band width over bar history; flag if current is in bottom 10%
+  const bbWidths = bb5.upper.map((u, i) => {
+    const lo = bb5.lower[i], mi = bb5.mid[i];
+    if (isNaN(u) || isNaN(lo) || !mi) return NaN;
+    return (u - lo) / mi;
+  }).filter(v => !isNaN(v));
+  const curBBWidth  = bbWidths[bbWidths.length - 1] || 0;
+  const bbW50sorted = [...bbWidths.slice(-50)].sort((a, b) => a - b);
+  const bbSqueeze   = bbW50sorted.length >= 10 && curBBWidth <= bbW50sorted[Math.floor(bbW50sorted.length * 0.10)];
+
   // 15m trend: price vs EMA(10) on 15m — more stable than 5-bar close compare
   const cl15 = cl(c15m);
   const ema15 = ema(cl15, 10);
@@ -820,7 +870,52 @@ function analyse(c1m, c5m, c15m, c1h) {
   const lastEma1h = last(ema1h.filter(v=>!isNaN(v)));
   const trend1h = cl1h[cl1h.length-1] > lastEma1h ? 'BULLISH' : 'BEARISH';
 
+  // BTC correlation context (btc5m = BTCUSDT 5m klines)
+  let btcContext = 'unknown';
+  if (btc5m.length >= 10) {
+    const btcCl      = btc5m.map(c => c.close);
+    const btcEmaArr  = ema(btcCl, 10);
+    const btcEmaLast = btcEmaArr.filter(v => !isNaN(v)).slice(-1)[0];
+    const btcBullish = btcCl[btcCl.length - 1] > btcEmaLast;
+    const solBullish = trend15 === 'BULLISH';
+    const btcChg5    = (btcCl[btcCl.length-1] - btcCl[Math.max(0, btcCl.length-6)]) / btcCl[Math.max(0, btcCl.length-6)] * 100;
+    const solCl5     = cl(c5m);
+    const solChg5    = (solCl5[solCl5.length-1] - solCl5[Math.max(0, solCl5.length-6)]) / solCl5[Math.max(0, solCl5.length-6)] * 100;
+    if      (btcBullish && !solBullish)                        btcContext = 'sol_lagging';
+    else if (!btcBullish && solBullish)                        btcContext = 'sol_strong';
+    else if (!btcBullish && !solBullish && solChg5 < btcChg5) btcContext = 'sol_weak';
+    else if (btcBullish  && solBullish)                        btcContext = 'confirming';
+    else                                                        btcContext = 'mixed';
+  }
+
+  // OI direction trend from recent snapshots (oldest→newest)
+  let oiTrend = 'neutral';
+  if (oiHist.length >= 4) {
+    const old3 = oiHist.slice(0, 3).reduce((a, b) => a + b, 0) / 3;
+    const new3 = oiHist.slice(-3).reduce((a, b) => a + b, 0) / 3;
+    const chg  = old3 > 0 ? (new3 - old3) / old3 : 0;
+    if      (chg >  0.01)  oiTrend = 'rising';
+    else if (chg < -0.02)  oiTrend = 'collapsing';
+    else if (chg < -0.005) oiTrend = 'falling';
+  }
+
+  // Funding history: persistent crowding check (rates already in %)
+  let fundingTrend = 'neutral', fundingAvg = 0;
+  if (fundingHist.length >= 3) {
+    fundingAvg = fundingHist.reduce((a, b) => a + b, 0) / fundingHist.length;
+    if      (fundingAvg >  0.04) fundingTrend = 'persistently_long';
+    else if (fundingAvg < -0.04) fundingTrend = 'persistently_short';
+  }
+
   const price   = last(c1m).close;
+
+  // Round number proximity ($5 increments)
+  const rndStep    = 5;
+  const rndBelow   = Math.floor(price / rndStep) * rndStep;
+  const rndAbove   = Math.ceil(price / rndStep) * rndStep;
+  const nearestRnd = Math.abs(price - rndBelow) < Math.abs(price - rndAbove) ? rndBelow : rndAbove;
+  const rndDistPct = nearestRnd > 0 ? Math.abs(price - nearestRnd) / price * 100 : 999;
+  const nearRound  = rndDistPct < 1.5;
   const l1open  = last(c1m).open;
   const p1close = prev(c1m).close;
   const p1open  = prev(c1m).open;
@@ -880,6 +975,20 @@ function analyse(c1m, c5m, c15m, c1h) {
   if ((k1 < k1p) || k1 < 15) {
     longScore += 0.25; longItems.push([true,  `Stoch RSI 1m cooling  [${k1.toFixed(1)}]`]);
   }
+  if (btcContext === 'sol_lagging') {
+    longScore += 0.25; longItems.push([true,  'BTC bullish, SOL lagging — catch-up long potential ▲']);
+  } else if (btcContext === 'sol_strong') {
+    longScore += 0.5;  longItems.push([true,  'BTC weak but SOL holding — relative strength long ✦']);
+  } else if (btcContext === 'sol_weak') {
+    longItems.push([false, 'SOL underperforming BTC — avoid long here']);
+  } else if (btcContext === 'confirming') {
+    longScore += 0.15; longItems.push([true,  'BTC & SOL both bullish — confirming move ▲']);
+  }
+  if (oiTrend === 'rising' && trend15 === 'BULLISH') {
+    longScore += 0.25; longItems.push([true,  'OI rising + price up — real buying, conviction long ▲']);
+  } else if (oiTrend === 'collapsing') {
+    longItems.push([false, 'OI collapsing — liquidation flush, wait for stability']);
+  }
 
   // ── Short conditions ──
   const shortItems = [];
@@ -921,6 +1030,14 @@ function analyse(c1m, c5m, c15m, c1h) {
   if (nearResistance || nearBreakout) {
     shortScore += 0.5; shortItems.push([true,  `At session resistance $${nearBreakout ? SESSION_LEVELS.breakout : SESSION_LEVELS.resistance1} ⚡`]);
   }
+  if (btcContext === 'sol_weak') {
+    shortScore += 0.25; shortItems.push([true,  'SOL underperforming BTC — weakness confirms short ▼']);
+  } else if (btcContext === 'sol_strong') {
+    shortItems.push([false, 'SOL showing relative strength vs BTC — risky short']);
+  }
+  if (oiTrend === 'rising' && trend15 === 'BEARISH') {
+    shortScore += 0.25; shortItems.push([true,  'OI rising + price down — shorts opening, confirms bearish ▼']);
+  }
 
   // ── Red flags ──
   const redFlags = [];
@@ -945,6 +1062,16 @@ function analyse(c1m, c5m, c15m, c1h) {
     redFlags.push('Liquidity sweep UP detected — wick above recent highs then closed back, watch for short reversal');
   if (sweepDown)
     redFlags.push('Liquidity sweep DOWN detected — wick below recent lows then closed back, watch for long reversal');
+  if (bbSqueeze)
+    redFlags.push('BB compressing (bottom 10% of last 50-bar width) — volatility expansion imminent, wait for breakout direction before entry');
+  if (nearRound)
+    redFlags.push(`Price ${rndDistPct.toFixed(1)}% from $${nearestRnd} round level — expect liquidity sweep through level before continuation`);
+  if (oiTrend === 'collapsing')
+    redFlags.push('OI collapsing rapidly — liquidation flush likely in progress, wait for stabilization before new entries');
+  if (fundingTrend === 'persistently_long')
+    redFlags.push(`Avg funding +${fundingAvg.toFixed(4)}% (${fundingHist.length} periods) — market persistently net long, contrarian sell pressure building`);
+  if (fundingTrend === 'persistently_short')
+    redFlags.push(`Avg funding ${fundingAvg.toFixed(4)}% (${fundingHist.length} periods) — market persistently net short, short squeeze risk elevated`);
 
   const { bFVG, sFVG } = findFVGs(c15m, price);
   const { bOB,  sOB  } = findOBs(c15m,  price);
@@ -964,6 +1091,9 @@ function analyse(c1m, c5m, c15m, c1h) {
     longScore, longItems, shortScore, shortItems, redFlags,
     bFVG, sFVG, bOB, sOB, bodyQuality,
     sweepUp, sweepDown,
+    bbSqueeze, curBBWidth,
+    nearRound, nearestRnd, rndDistPct,
+    oiTrend, btcContext, fundingTrend, fundingAvg,
   };
 }
 
@@ -1060,6 +1190,39 @@ function render(sig, supports, resistances, ticker) {
   // Update 24h high/low in session banner
   document.getElementById('s24hHigh').textContent = '$' + fmt(ticker.highPrice24h);
   document.getElementById('s24hLow').textContent  = '$' + fmt(ticker.lowPrice24h);
+
+  // ── CONTEXT STRIP ─────────────────────────────────────────────────────────────
+  const btcLabels = {
+    sol_lagging: { text: 'SOL LAGGING ▲', color: 'var(--yellow)' },
+    sol_strong:  { text: 'SOL STRONG ✦',  color: 'var(--green)'  },
+    sol_weak:    { text: 'SOL WEAK ▼',    color: 'var(--red)'    },
+    confirming:  { text: 'CONFIRMING ▲',  color: 'var(--green)'  },
+    mixed:       { text: 'MIXED',          color: 'var(--cyan)'   },
+    unknown:     { text: '—',             color: 'var(--muted2)' },
+  };
+  const btcL = btcLabels[sig.btcContext] || btcLabels.unknown;
+  document.getElementById('cBTC').innerHTML = `<span style="color:${btcL.color}">${btcL.text}</span>`;
+
+  const oiLabels = {
+    rising:     { text: 'RISING ▲',     color: 'var(--green)'  },
+    falling:    { text: 'FALLING ▼',    color: 'var(--yellow)' },
+    collapsing: { text: 'FLUSH ▼▼',     color: 'var(--red)'    },
+    neutral:    { text: 'STABLE',        color: 'var(--cyan)'   },
+  };
+  const oiL = oiLabels[sig.oiTrend] || oiLabels.neutral;
+  document.getElementById('cOI').innerHTML = `<span style="color:${oiL.color}">${oiL.text}</span>`;
+
+  const bbWpct = (sig.bbHi - sig.bbLo) / sig.bbMid * 100;
+  const bbStateColor = sig.bbSqueeze ? 'var(--yellow)' : bbWpct > 2.5 ? 'var(--red)' : 'var(--cyan)';
+  const bbStateText  = sig.bbSqueeze ? '⚠ SQUEEZING' : bbWpct > 2.5 ? 'EXPANDING' : 'NORMAL';
+  document.getElementById('cBB').innerHTML = `<span style="color:${bbStateColor}">${bbStateText}</span>`;
+
+  if (sig.nearRound) {
+    document.getElementById('cRnd').innerHTML =
+      `<span style="color:var(--yellow)">$${sig.nearestRnd} · ${sig.rndDistPct.toFixed(1)}% away</span>`;
+  } else {
+    document.getElementById('cRnd').innerHTML = `<span style="color:var(--muted2)">None nearby</span>`;
+  }
 
   // ── BIAS GAUGE ────────────────────────────────────────────────────────────────
   // Raw score differential: ±1 range
@@ -1348,15 +1511,18 @@ function startCountdown() {
 // ── MAIN FETCH LOOP ───────────────────────────────────────────────────────────
 async function fetchData() {
   try {
-    const [c1m, c5m, c15m, c1h, ticker] = await Promise.all([
+    const [c1m, c5m, c15m, c1h, ticker, fundingHist, oiHist, cBtc5m] = await Promise.all([
       fetchKlines(SYMBOL, '1',  150),
       fetchKlines(SYMBOL, '5',  150),
       fetchKlines(SYMBOL, '15', 100),
       fetchKlines(SYMBOL, '60', 50),
       fetchTicker(SYMBOL),
+      fetchFundingHistory(SYMBOL, 8).catch(() => []),
+      fetchOIHistory(SYMBOL, 12).catch(() => []),
+      fetchKlines('BTCUSDT', '5', 50).catch(() => []),
     ]);
     const { supports, resistances } = findSR(c5m);
-    const sig = analyse(c1m, c5m, c15m, c1h);
+    const sig = analyse(c1m, c5m, c15m, c1h, fundingHist, oiHist, cBtc5m);
     render(sig, supports, resistances, ticker);
   } catch(e) {
     const loading = document.getElementById('loading');
