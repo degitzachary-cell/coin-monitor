@@ -1339,6 +1339,8 @@ async function fetchData() {
     const sig = analyse(c1m, c5m, c15m, c1h);
     render(sig, supports, resistances, ticker);
   } catch(e) {
+    const loading = document.getElementById('loading');
+    if (loading) loading.classList.add('hidden');
     document.getElementById('errorMsg').textContent = '⚠ ' + e.message;
     console.error(e);
   }
