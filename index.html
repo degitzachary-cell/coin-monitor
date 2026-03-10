@@ -1086,7 +1086,7 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
 
   return {
     price, trend15, trend1h, bbLo, bbMid, bbHi, k1, d1, k5, d5,
-    vs: vs5m, vs1m: vs,   // vs = 5m for scoring; vs1m = 1m for display reference
+    vs: vs5m,
     macd: ml, macdSig: ms, macdHist: mh,
     longScore, longItems, shortScore, shortItems, redFlags,
     bFVG, sFVG, bOB, sOB, bodyQuality,
@@ -1525,8 +1525,6 @@ async function fetchData() {
     const sig = analyse(c1m, c5m, c15m, c1h, fundingHist, oiHist, cBtc5m);
     render(sig, supports, resistances, ticker);
   } catch(e) {
-    const loading = document.getElementById('loading');
-    if (loading) loading.classList.add('hidden');
     document.getElementById('errorMsg').textContent = '⚠ ' + e.message;
     console.error(e);
   }
