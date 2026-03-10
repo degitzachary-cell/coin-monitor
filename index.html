@@ -506,7 +506,7 @@ let prevFireLong  = false; // track FIRE state to avoid repeat alerts
 let prevFireShort = false;
 
 // ── ALERTS ────────────────────────────────────────────────────────────────────
-if (Notification.permission === 'default') Notification.requestPermission();
+if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission();
 
 function playFireTone(isLong) {
   try {
@@ -529,7 +529,7 @@ function playFireTone(isLong) {
 
 function fireAlert(side) {
   playFireTone(side === 'LONG');
-  if (Notification.permission === 'granted') {
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     const icon = side === 'LONG' ? '🔥▲' : '🔥▼';
     new Notification(`${icon} ${SYMBOL} ${side} FIRE`, {
       body: `${side} signal score ≥ 3.5 — check the monitor`,
