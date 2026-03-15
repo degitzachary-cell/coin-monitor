@@ -83,7 +83,6 @@ Notifications and audio tones fire once per FIRE transition (not on every refres
 ## Versions & Changelog
 
 ### v3 — Signal Improvements (current)
-*Branch: `claude/investigate-codebase-AGR72`*
 
 Five new detection layers added on top of the v2 engine:
 
@@ -97,7 +96,7 @@ Five new detection layers added on top of the v2 engine:
 
 5. **Funding rate history** — fetches last 8 funding payment rates. Persistent positive average (>0.04%) flags crowded longs; persistent negative flags short squeeze risk. Both appear in red flags when a signal is forming on the same side as the crowd.
 
-**Also fixed:** Session levels banner now updates immediately when the LEVELS panel SET button is pressed (was previously static HTML).
+**Also fixed:** Session levels banner now updates immediately when the LEVELS panel SET button is pressed (was previously static HTML). Ghost needle (3-cycle bias average) rendered in vibrant red for clarity.
 
 **Service worker:** cache bumped to `sol-monitor-v3`.
 
@@ -139,7 +138,7 @@ Five new detection layers added on top of the v2 engine:
 
 ```
 coin-monitor/
-├── index.html      # Everything — HTML, CSS, JS in one file (~1560 lines)
+├── index.html      # Everything — HTML, CSS, JS in one file (~1670 lines)
 ├── sw.js           # Service worker (cache-first shell, network-first for APIs)
 ├── manifest.json   # PWA manifest
 ├── icon-*.png      # App icons (76, 120, 152, 180, 192, 512px)
