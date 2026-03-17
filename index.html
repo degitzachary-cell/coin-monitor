@@ -652,6 +652,11 @@ function applyConfig() {
   try { localStorage.setItem('coin-monitor-symbol', SYMBOL); } catch(e) {}
   const tvIframe = document.getElementById('tvChart');
   tvIframe.src = tvIframe.src.replace(/BYBIT%3A[A-Z0-9.]+/, 'BYBIT%3A' + SYMBOL + '.P');
+  // Clear session levels so old symbol's prices don't pollute the new coin
+  SESSION_LEVELS.support1 = 0; SESSION_LEVELS.resistance1 = 0;
+  SESSION_LEVELS.breakout = 0; SESSION_LEVELS.sessionLow   = 0;
+  ['lvlLow','lvlSup','lvlRes','lvlBrk'].forEach(id => document.getElementById(id).value = '');
+  ['sbLow','sbSup','sbRes','sbBrk'].forEach(id => document.getElementById(id).textContent = '—');
   if (fetchTimer) clearInterval(fetchTimer);
   fetchData();
   fetchTimer = setInterval(fetchData, REFRESH * 1000);
@@ -989,8 +994,8 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
 
   const price   = last(c1m).close;
 
-  // Round number proximity ($5 increments)
-  const rndStep    = 5;
+  // Round number proximity — step scales with price magnitude
+  const rndStep    = price >= 100 ? 5 : price >= 10 ? 1 : price >= 1 ? 0.5 : price >= 0.1 ? 0.05 : price >= 0.01 ? 0.005 : 0.001;
   const rndBelow   = Math.floor(price / rndStep) * rndStep;
   const rndAbove   = Math.ceil(price / rndStep) * rndStep;
   const nearestRnd = Math.abs(price - rndBelow) < Math.abs(price - rndAbove) ? rndBelow : rndAbove;
@@ -1209,6 +1214,13 @@ function fmtP(n) {
   if (v >= 0.01)  return v.toLocaleString('en-US', {minimumFractionDigits:5, maximumFractionDigits:5});
   return v.toLocaleString('en-US', {minimumFractionDigits:6, maximumFractionDigits:6});
 }
+// Format small indicator values (MACD etc) — scales decimals to the magnitude of the value itself
+function fmtSig(n) {
+  const a = Math.abs(parseFloat(n));
+  if (a >= 1)      return parseFloat(n).toFixed(4);
+  if (a >= 0.0001) return parseFloat(n).toFixed(6);
+  return parseFloat(n).toFixed(8);
+}
 
 function barHTML(pct, color='cyan', height=6) {
   const cls = {green:'fill-green',red:'fill-red',cyan:'fill-cyan',yellow:'fill-yellow'}[color]||'fill-cyan';
@@ -1328,7 +1340,7 @@ function render(sig, supports, resistances, ticker) {
 
   if (sig.nearRound) {
     document.getElementById('cRnd').innerHTML =
-      `<span style="color:var(--yellow)">$${sig.nearestRnd} · ${sig.rndDistPct.toFixed(1)}% away</span>`;
+      `<span style="color:var(--yellow)">$${fmtP(sig.nearestRnd)} · ${sig.rndDistPct.toFixed(1)}% away</span>`;
   } else {
     document.getElementById('cRnd').innerHTML = `<span style="color:var(--muted2)">None nearby</span>`;
   }
@@ -1456,7 +1468,7 @@ function render(sig, supports, resistances, ticker) {
   document.getElementById('indicators').innerHTML =
     indRow('BB 5m', bbPct,
       `<span class="${bbC}">${bbPct.toFixed(0)}%</span>`,
-      `Lo ${fmt(sig.bbLo,2)} &nbsp;·&nbsp; Mid ${fmt(sig.bbMid,2)} &nbsp;·&nbsp; Hi ${fmt(sig.bbHi,2)}`)
+      `Lo ${fmtP(sig.bbLo)} &nbsp;·&nbsp; Mid ${fmtP(sig.bbMid)} &nbsp;·&nbsp; Hi ${fmtP(sig.bbHi)}`)
     + indRow('StRSI 1m', sig.k1, sig.k1.toFixed(1),
       `K: ${sig.k1.toFixed(1)} &nbsp;·&nbsp; D: ${sig.d1.toFixed(1)}`)
     + indRow('StRSI 5m', sig.k5, sig.k5.toFixed(1),
@@ -1466,8 +1478,8 @@ function render(sig, supports, resistances, ticker) {
   const mh = sig.macdHist;
   const mc = mh > 0 ? 'green' : 'red';
   document.getElementById('macd').innerHTML = `
-    <div class="big-num ${mc}">${mh>=0?'▲':'▼'} ${mh>=0?'+':''}${mh.toFixed(4)}</div>
-    <div class="big-sub">Line ${sig.macd.toFixed(4)} &nbsp;·&nbsp; Sig ${sig.macdSig.toFixed(4)}</div>
+    <div class="big-num ${mc}">${mh>=0?'▲':'▼'} ${mh>=0?'+':''}${fmtSig(mh)}</div>
+    <div class="big-sub">Line ${fmtSig(sig.macd)} &nbsp;·&nbsp; Sig ${fmtSig(sig.macdSig)}</div>
     <span class="${mc}" style="font-size:10px;letter-spacing:1px">${mh>0?'RISING — BULLISH':'FALLING — BEARISH'}</span>`;
 
   // Volume (5m for signal scoring)
@@ -1481,11 +1493,11 @@ function render(sig, supports, resistances, ticker) {
     <div class="${vc}" style="font-size:10px;margin-top:6px;letter-spacing:1px">${vs>=2?'⚡ SPIKE':'NORMAL'}</div>`;
 
   // Levels — merge auto-detected + session levels only (OB/FVG in dedicated card)
-  const sessionRes = [SESSION_LEVELS.resistance1, SESSION_LEVELS.breakout].filter(l => l > sig.price);
-  const sessionSup = [SESSION_LEVELS.support1, SESSION_LEVELS.sessionLow].filter(l => l < sig.price);
+  const sessionRes = [SESSION_LEVELS.resistance1, SESSION_LEVELS.breakout].filter(l => l > 0 && l > sig.price);
+  const sessionSup = [SESSION_LEVELS.support1, SESSION_LEVELS.sessionLow].filter(l => l > 0 && l < sig.price);
   const allRes = [...new Set([...resistances, ...sessionRes])].sort((a,b)=>a-b).filter(r => r > sig.price).slice(-3);
   const allSup = [...new Set([...supports, ...sessionSup])].sort((a,b)=>a-b).filter(s => s < sig.price).slice(0,3);
-  const sessionLvls = new Set([SESSION_LEVELS.support1, SESSION_LEVELS.resistance1, SESSION_LEVELS.breakout, SESSION_LEVELS.sessionLow]);
+  const sessionLvls = new Set([SESSION_LEVELS.support1, SESSION_LEVELS.resistance1, SESSION_LEVELS.breakout, SESSION_LEVELS.sessionLow].filter(l => l > 0));
 
   let lvls = '';
   for (const r of [...allRes].reverse()) {
