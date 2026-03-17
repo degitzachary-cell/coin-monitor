@@ -7,89 +7,117 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="SOL Monitor">
-<meta name="theme-color" content="#06080f">
+<meta name="theme-color" content="#070a11">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
 <link rel="apple-touch-icon" sizes="120x120" href="icon-120.png">
 <link rel="apple-touch-icon" sizes="76x76"   href="icon-76.png">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700;800&family=Lexend:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&display=swap');
+
 :root {
-  --bg:     #06080f;
-  --card:   #0a0e1a;
-  --border: #141c2e;
-  --text:   #e2e8f0;
-  --muted:  #3a4a6b;
-  --muted2: #6b7fa3;
-  --green:  #00ff88;
-  --red:    #ff3d5a;
-  --yellow: #ffb800;
-  --blue:   #4488ff;
-  --cyan:   #00d4ff;
-  --purple: #a855f7;
+  --bg:      #070a11;
+  --bg2:     #0c1019;
+  --card:    #0b1120;
+  --card-hi: #0f1628;
+  --border:  rgba(30, 45, 75, 0.45);
+  --border-hi: rgba(50, 70, 110, 0.4);
+  --text:    #e2e8f0;
+  --text2:   #c4cdd9;
+  --muted:   #3a4a6b;
+  --muted2:  #6b7fa3;
+  --green:   #34d399;
+  --red:     #f87171;
+  --yellow:  #fbbf24;
+  --blue:    #60a5fa;
+  --cyan:    #38bdf8;
+  --purple:  #a78bfa;
+
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-body: 'Lexend', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
-* { margin:0; padding:0; box-sizing:border-box; }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
 .purple { color: var(--purple); }
+
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  padding: 14px;
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 16px;
   min-height: 100vh;
   background-image:
-    radial-gradient(ellipse at 20% 0%, rgba(0,212,255,0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 100%, rgba(0,255,136,0.03) 0%, transparent 50%);
+    radial-gradient(ellipse at 15% 0%, rgba(56,189,248,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 100%, rgba(52,211,153,0.03) 0%, transparent 50%);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Config bar */
+/* ── Config bar ─────────────────────────────────────────────────── */
 #configBar {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 9px 14px;
-  margin-bottom: 10px;
+  border-radius: 14px;
+  padding: 12px 18px;
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
 }
-#configBar label { color: var(--muted2); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+#configBar label {
+  color: var(--muted2);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  font-family: var(--font-body);
+}
 #configBar input, #configBar select {
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 8px;
   color: var(--text);
-  padding: 4px 8px;
-  font-family: inherit;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
   font-size: 12px;
+  transition: border-color 0.2s;
+}
+#configBar input:focus, #configBar select:focus {
+  outline: none;
+  border-color: var(--cyan);
 }
 #configBar button {
-  background: var(--cyan);
+  background: linear-gradient(135deg, var(--cyan), #2196f3);
   color: #000;
   border: none;
-  border-radius: 4px;
-  padding: 5px 14px;
-  font-weight: 800;
+  border-radius: 8px;
+  padding: 7px 18px;
+  font-weight: 700;
   font-size: 11px;
   cursor: pointer;
   letter-spacing: 1px;
-  font-family: inherit;
+  font-family: var(--font-body);
+  transition: opacity 0.2s, transform 0.1s;
 }
-#configBar button:hover { opacity: .8; }
+#configBar button:hover { opacity: 0.85; }
+#configBar button:active { transform: scale(0.97); }
 
-/* Refresh bar */
-#refreshWrap { height: 2px; background: var(--border); border-radius:1px; margin-bottom:10px; }
-#refreshBar  { height: 2px; background: var(--cyan); border-radius:1px; transition: width .1s linear; }
+/* ── Refresh bar ─────────────────────────────────────────────────── */
+#refreshWrap { height: 2px; background: var(--border); border-radius: 2px; margin-bottom: 12px; overflow: hidden; }
+#refreshBar  { height: 2px; background: linear-gradient(90deg, var(--cyan), var(--blue)); border-radius: 2px; transition: width .1s linear; }
 
-/* Header */
+/* ── Header ─────────────────────────────────────────────────────── */
 .header {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 20px;
-  margin-bottom: 10px;
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -102,41 +130,51 @@ body {
   top: 0; left: 0; right: 0;
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--cyan), transparent);
-  opacity: 0.6;
+  opacity: 0.5;
 }
 .h-symbol {
-  font-family: 'Bebas Neue', monospace;
+  font-family: var(--font-display);
   font-size: 13px;
+  font-weight: 700;
   letter-spacing: 3px;
   color: var(--cyan);
+  text-transform: uppercase;
 }
 .h-price {
-  font-family: 'Bebas Neue', monospace;
-  font-size: 42px;
+  font-family: var(--font-display);
+  font-size: 46px;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: 2px;
+  letter-spacing: -1px;
 }
 .h-badge {
+  font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 4px;
+  padding: 4px 12px;
+  border-radius: 8px;
 }
-.h-badge.up   { background:rgba(0,255,136,.12); color:var(--green); border:1px solid rgba(0,255,136,.25); }
-.h-badge.down { background:rgba(255,61,90,.12);  color:var(--red);   border:1px solid rgba(255,61,90,.25); }
-.h-meta { color:var(--muted2); font-size:11px; margin-top:4px; }
-.h-right { text-align:right; }
-.h-trend { font-size:18px; font-weight:800; margin-bottom:4px; font-family: 'Bebas Neue', monospace; letter-spacing: 2px; }
+.h-badge.up   { background: rgba(52,211,153,.1); color: var(--green); border: 1px solid rgba(52,211,153,.25); }
+.h-badge.down { background: rgba(248,113,113,.1); color: var(--red);  border: 1px solid rgba(248,113,113,.25); }
+.h-meta { color: var(--muted2); font-size: 11px; margin-top: 6px; font-family: var(--font-body); }
+.h-right { text-align: right; }
+.h-trend {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+}
 
-/* Session levels banner */
+/* ── Session levels banner ───────────────────────────────────────── */
 .session-banner {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px 16px;
-  margin-bottom: 10px;
+  border-radius: 14px;
+  padding: 14px 20px;
+  margin-bottom: 12px;
   display: flex;
-  gap: 20px;
+  gap: 24px;
   flex-wrap: wrap;
   align-items: center;
 }
@@ -145,156 +183,167 @@ body {
   text-transform: uppercase;
   letter-spacing: 1.5px;
   color: var(--muted2);
-  margin-bottom: 2px;
+  margin-bottom: 3px;
+  font-weight: 500;
 }
 .session-banner .sb-val {
-  font-size: 13px;
-  font-weight: 800;
-  font-family: 'Bebas Neue', monospace;
-  letter-spacing: 1px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
 }
-.sb-item { border-right: 1px solid var(--border); padding-right: 20px; }
+.sb-item { border-right: 1px solid var(--border); padding-right: 24px; }
 .sb-item:last-child { border-right: none; }
 
-/* Grid */
-.row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
-.row3 { display:grid; grid-template-columns:1.2fr .85fr .85fr; gap:10px; margin-bottom:10px; }
+/* ── Grid ─────────────────────────────────────────────────────── */
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.row3 { display: grid; grid-template-columns: 1.2fr .85fr .85fr; gap: 12px; margin-bottom: 12px; }
 
-/* Card */
+/* ── Card ─────────────────────────────────────────────────────── */
 .card {
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
+  border-radius: 14px;
+  padding: 18px 20px;
 }
 .card-title {
-  font-size: 9px;
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 2px;
-  color: var(--muted);
-  margin-bottom: 12px;
-  padding-bottom: 7px;
+  color: var(--muted2);
+  margin-bottom: 16px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--border);
 }
 
-/* Progress bars */
-.bar-track { height:6px; background:var(--border); border-radius:3px; overflow:hidden; margin:3px 0; }
-.bar-fill  { height:100%; border-radius:3px; transition:width .6s ease; }
-.fill-green  { background: linear-gradient(90deg, #00cc66, var(--green)); }
-.fill-red    { background: linear-gradient(90deg, #cc1133, var(--red)); }
-.fill-cyan   { background: linear-gradient(90deg, #0099cc, var(--cyan)); }
-.fill-yellow { background: linear-gradient(90deg, #cc8800, var(--yellow)); }
+/* ── Progress bars ─────────────────────────────────────────────── */
+.bar-track { height: 6px; background: rgba(30,45,75,0.5); border-radius: 4px; overflow: hidden; margin: 4px 0; }
+.bar-fill  { height: 100%; border-radius: 4px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+.fill-green  { background: linear-gradient(90deg, #059669, var(--green)); }
+.fill-red    { background: linear-gradient(90deg, #dc2626, var(--red)); }
+.fill-cyan   { background: linear-gradient(90deg, #0284c7, var(--cyan)); }
+.fill-yellow { background: linear-gradient(90deg, #d97706, var(--yellow)); }
 
-/* Indicator rows */
-.ind-row { display:grid; grid-template-columns:65px 1fr 52px; align-items:center; gap:10px; margin-bottom:12px; }
-.ind-label { color:var(--muted2); font-size:11px; }
-.ind-val   { text-align:right; font-weight:800; font-size:13px; }
-.ind-sub   { font-size:10px; color:var(--muted2); margin-top:2px; }
+/* ── Indicator rows ─────────────────────────────────────────────── */
+.ind-row { display: grid; grid-template-columns: 75px 1fr 52px; align-items: center; gap: 12px; margin-bottom: 14px; }
+.ind-label { color: var(--muted2); font-size: 11px; font-weight: 500; }
+.ind-val   { text-align: right; font-weight: 700; font-size: 13px; font-family: var(--font-mono); }
+.ind-sub   { font-size: 10px; color: var(--muted2); margin-top: 3px; font-family: var(--font-mono); }
 
-/* Score panels */
-.score-hdr  { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
-.score-title{ font-size:14px; font-weight:800; font-family: 'Bebas Neue', monospace; letter-spacing: 1.5px; }
-.score-badge{ font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
-.score-track{ height:3px; background:var(--border); border-radius:2px; margin-bottom:12px; }
-.score-fill { height:100%; border-radius:2px; transition:width .6s ease; }
+/* ── Score panels ─────────────────────────────────────────────── */
+.score-hdr   { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.score-title { font-size: 16px; font-weight: 800; font-family: var(--font-display); letter-spacing: 1px; }
+.score-badge { font-family: var(--font-mono); font-size: 12px; font-weight: 700; padding: 4px 14px; border-radius: 20px; }
+.score-track { height: 4px; background: rgba(30,45,75,0.5); border-radius: 3px; margin-bottom: 14px; overflow: hidden; }
+.score-fill  { height: 100%; border-radius: 3px; transition: width .6s cubic-bezier(.4,0,.2,1); }
 
-/* Signal items */
+/* ── Signal items ─────────────────────────────────────────────── */
 .sig-item {
-  display:flex; align-items:flex-start; gap:8px;
-  padding:5px 0; border-bottom:1px solid var(--border);
-  font-size:11px; line-height:1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(30,45,75,0.3);
+  font-size: 12px;
+  line-height: 1.6;
 }
-.sig-item:last-child { border-bottom:none; }
-.sig-icon { font-size:12px; flex-shrink:0; margin-top:1px; }
+.sig-item:last-child { border-bottom: none; }
+.sig-icon { font-size: 12px; flex-shrink: 0; margin-top: 2px; }
 
-/* Levels */
+/* ── Levels ───────────────────────────────────────────────────── */
 .level-row {
-  display:flex; justify-content:space-between; align-items:center;
-  padding:6px 10px; border-radius:5px; margin-bottom:3px; font-size:11px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
 }
-.level-val  { font-weight:800; font-size:12px; font-family: 'Bebas Neue', monospace; letter-spacing: 1px; }
-.level-dist { font-size:10px; }
-.level-tag  { font-size:9px; letter-spacing: 1px; color: var(--muted2); margin-left: 6px; }
-.lr  { background:rgba(255,61,90,.06); }
-.ls  { background:rgba(0,255,136,.06); }
-.lnow{ background:rgba(0,212,255,.1); border:1px solid rgba(0,212,255,.2); }
+.level-val  { font-weight: 700; font-size: 13px; font-family: var(--font-mono); letter-spacing: 0.5px; }
+.level-dist { font-size: 11px; font-family: var(--font-mono); }
+.level-tag  { font-size: 9px; letter-spacing: 1px; color: var(--muted2); margin-left: 6px; }
+.lr  { background: rgba(248,113,113,.05); }
+.ls  { background: rgba(52,211,153,.05); }
+.lnow{ background: rgba(56,189,248,.08); border: 1px solid rgba(56,189,248,.2); }
 
-/* OB/FVG proximity context */
+/* ── OB/FVG proximity context ─────────────────────────────────── */
 .ctx-alert {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 5px;
-  font-size: 11px;
-  margin-bottom: 5px;
-  line-height: 1.4;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  margin-bottom: 6px;
+  line-height: 1.5;
 }
-.ctx-alert.warn  { background: rgba(255,184,0,.08); border: 1px solid rgba(255,184,0,.25); color: var(--yellow); }
-.ctx-alert.strong{ background: rgba(255,61,90,.08);  border: 1px solid rgba(255,61,90,.25);  color: var(--red); }
-.ctx-alert.good  { background: rgba(0,255,136,.06);  border: 1px solid rgba(0,255,136,.2);   color: var(--green); }
-.ctx-icon { font-size: 13px; flex-shrink: 0; }
+.ctx-alert.warn  { background: rgba(251,191,36,.06); border: 1px solid rgba(251,191,36,.2); color: var(--yellow); }
+.ctx-alert.strong{ background: rgba(248,113,113,.06); border: 1px solid rgba(248,113,113,.2); color: var(--red); }
+.ctx-alert.good  { background: rgba(52,211,153,.05); border: 1px solid rgba(52,211,153,.15); color: var(--green); }
+.ctx-icon { font-size: 14px; flex-shrink: 0; }
 
-/* OB / FVG panel */
+/* ── OB / FVG panel ───────────────────────────────────────────── */
 .obfvg-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
 }
 .obfvg-zone {
-  border-radius: 6px;
-  padding: 10px 12px;
+  border-radius: 10px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
 }
-.obfvg-zone.supply { background: rgba(255,61,90,.07); border: 1px solid rgba(255,61,90,.2); }
-.obfvg-zone.demand { background: rgba(0,255,136,.07); border: 1px solid rgba(0,255,136,.2); }
-.obfvg-zone.fvg-s  { background: rgba(168,85,247,.07); border: 1px solid rgba(168,85,247,.2); }
-.obfvg-zone.fvg-b  { background: rgba(168,85,247,.07); border: 1px solid rgba(168,85,247,.2); }
+.obfvg-zone.supply { background: rgba(248,113,113,.06); border: 1px solid rgba(248,113,113,.18); }
+.obfvg-zone.demand { background: rgba(52,211,153,.06); border: 1px solid rgba(52,211,153,.18); }
+.obfvg-zone.fvg-s  { background: rgba(167,139,250,.06); border: 1px solid rgba(167,139,250,.18); }
+.obfvg-zone.fvg-b  { background: rgba(167,139,250,.06); border: 1px solid rgba(167,139,250,.18); }
 .obfvg-zone.empty  { background: var(--border); border: 1px solid transparent; opacity: 0.4; }
-.obfvg-type  { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; margin-bottom: 2px; }
-.obfvg-hi    { font-size: 13px; font-weight: 800; font-family: 'Bebas Neue', monospace; letter-spacing: 1px; }
-.obfvg-ce    { font-size: 11px; font-weight: 700; font-family: 'Bebas Neue', monospace; letter-spacing: 1px; padding: 2px 6px; border-radius: 3px; display: inline-block; width: fit-content; }
-.obfvg-lo    { font-size: 13px; font-weight: 800; font-family: 'Bebas Neue', monospace; letter-spacing: 1px; }
-.obfvg-dist  { font-size: 10px; margin-top: 2px; }
+.obfvg-type  { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700; margin-bottom: 3px; }
+.obfvg-hi    { font-size: 13px; font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.5px; }
+.obfvg-ce    { font-size: 11px; font-weight: 700; font-family: var(--font-mono); padding: 3px 8px; border-radius: 5px; display: inline-block; width: fit-content; }
+.obfvg-lo    { font-size: 13px; font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.5px; }
+.obfvg-dist  { font-size: 10px; margin-top: 3px; font-family: var(--font-mono); }
 .obfvg-tag   { font-size: 9px; letter-spacing: 1px; margin-top: 1px; }
-.big-num { font-size: 24px; font-weight:800; margin-bottom:4px; font-family: 'Bebas Neue', monospace; letter-spacing: 1px; }
-.big-sub { font-size:10px; color:var(--muted2); margin-bottom:6px; }
+.big-num { font-size: 28px; font-weight: 800; margin-bottom: 4px; font-family: var(--font-display); letter-spacing: -0.5px; }
+.big-sub { font-size: 11px; color: var(--muted2); margin-bottom: 8px; }
 
-/* Red flags */
+/* ── Red flags ─────────────────────────────────────────────────── */
 .flag {
-  padding:8px 12px;
-  background:rgba(255,184,0,.07);
-  border:1px solid rgba(255,184,0,.2);
-  border-radius:5px;
-  margin-bottom:5px;
-  color:var(--yellow);
-  font-size:11px;
-  line-height: 1.5;
+  padding: 10px 14px;
+  background: rgba(251,191,36,.05);
+  border: 1px solid rgba(251,191,36,.18);
+  border-radius: 10px;
+  margin-bottom: 6px;
+  color: var(--yellow);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
-/* Fire glow */
-.fire-long  { border-color:rgba(0,255,136,.4)  !important; box-shadow:0 0 20px rgba(0,255,136,.08); }
-.fire-short { border-color:rgba(255,61,90,.4)   !important; box-shadow:0 0 20px rgba(255,61,90,.08); }
-.fire-anim  { animation:fpulse 1.2s ease-in-out infinite; }
+/* ── Fire glow ─────────────────────────────────────────────────── */
+.fire-long  { border-color: rgba(52,211,153,.4) !important; box-shadow: 0 0 30px rgba(52,211,153,.08), inset 0 1px 0 rgba(52,211,153,.15); }
+.fire-short { border-color: rgba(248,113,113,.4) !important; box-shadow: 0 0 30px rgba(248,113,113,.08), inset 0 1px 0 rgba(248,113,113,.15); }
+.fire-anim  { animation: fpulse 1.5s ease-in-out infinite; }
 @keyframes fpulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 
-/* Util */
-.green  { color:var(--green); }
-.red    { color:var(--red); }
-.yellow { color:var(--yellow); }
-.cyan   { color:var(--cyan); }
-.purple { color:var(--purple); }
-.muted  { color:var(--muted2); }
-.bold   { font-weight:700; }
-.hidden { display:none !important; }
+/* ── Util ──────────────────────────────────────────────────────── */
+.green  { color: var(--green); }
+.red    { color: var(--red); }
+.yellow { color: var(--yellow); }
+.cyan   { color: var(--cyan); }
+.purple { color: var(--purple); }
+.muted  { color: var(--muted2); }
+.bold   { font-weight: 700; }
+.hidden { display: none !important; }
 
+/* ── Error ─────────────────────────────────────────────────────── */
+#errorMsg { color: var(--red); font-size: 11px; }
 
-/* Error */
-#errorMsg { color:var(--red); font-size:11px; }
-
-/* Pulse dot */
+/* ── Pulse dot ─────────────────────────────────────────────────── */
 .dot {
   display: inline-block;
   width: 7px; height: 7px;
@@ -304,6 +353,128 @@ body {
   animation: dotpulse 2s ease-in-out infinite;
 }
 @keyframes dotpulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+
+/* ── Bias gauge refinements ────────────────────────────────────── */
+.bias-gauge-track {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(to right,
+    rgba(248,113,113,0.25),
+    rgba(248,113,113,0.08) 25%,
+    rgba(30,45,75,0.6) 45%,
+    rgba(30,45,75,0.6) 55%,
+    rgba(52,211,153,0.08) 75%,
+    rgba(52,211,153,0.25)
+  );
+  border: 1px solid var(--border);
+}
+.bias-needle {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  transition: left 0.6s cubic-bezier(.4,0,.2,1);
+}
+.bias-ghost {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 16px;
+  border-radius: 2px;
+  background: rgba(248,113,113,0.6);
+  box-shadow: 0 0 6px rgba(248,113,113,0.4);
+  transition: left 1.5s cubic-bezier(.4,0,.2,1);
+}
+.bias-zone-mark {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 100%;
+}
+.bias-zone-label {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 8px;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  font-family: var(--font-body);
+}
+
+/* ── Scalp card ────────────────────────────────────────────────── */
+.scalp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+.scalp-score {
+  font-size: 36px;
+  font-weight: 800;
+  font-family: var(--font-display);
+  letter-spacing: -1px;
+  line-height: 1;
+  color: var(--cyan);
+}
+.scalp-track {
+  position: relative;
+  height: 8px;
+  border-radius: 5px;
+  background: rgba(30,45,75,0.5);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.scalp-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 5px;
+  background: var(--cyan);
+  transition: width 0.6s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── Tab bar ───────────────────────────────────────────────────── */
+.tab-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 20px;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  font-family: var(--font-body);
+  transition: all 0.2s;
+}
+.tab-btn:hover { opacity: 0.85; }
+.tab-active { background: linear-gradient(135deg, var(--cyan), var(--blue)); color: #000; }
+.tab-inactive { background: var(--card); color: var(--muted2); border: 1px solid var(--border); }
+
+/* ── Footer ────────────────────────────────────────────────────── */
+.footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 2px;
+  padding: 16px 0;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* ── Mobile ────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  body { padding: 10px; font-size: 12px; }
+  .row2, .row3 { grid-template-columns: 1fr; }
+  .obfvg-grid { grid-template-columns: 1fr 1fr; }
+  .header { padding: 16px; }
+  .h-price { font-size: 36px; }
+  .session-banner { gap: 16px; padding: 12px 16px; }
+  .sb-item { padding-right: 16px; }
+  .card { padding: 14px 16px; }
+}
 </style>
 </head>
 <body>
@@ -315,22 +486,23 @@ body {
   <label>Refresh (s)</label>
   <input id="cfgRefresh" type="number" value="10" min="5" max="60" style="width:55px">
   <button onclick="applyConfig()">APPLY</button>
-  <button onclick="toggleLevels()" style="background:var(--border);color:var(--muted2)">LEVELS</button>
+  <button onclick="toggleLevels()" style="background:var(--card);color:var(--muted2);border:1px solid var(--border)">LEVELS</button>
   <span id="errorMsg"></span>
-  <span style="margin-left:auto; color:var(--muted2); font-size:10px; letter-spacing:1px">
+  <span style="margin-left:auto; color:var(--muted2); font-size:10px; letter-spacing:1.5px; font-weight:500">
     <span class="dot"></span>LIVE · <span id="countdown">10</span>s
   </span>
 </div>
+
 <!-- Editable session levels panel -->
-<div id="levelsPanel" style="display:none; background:var(--card); border:1px solid var(--border); border-radius:8px; padding:10px 14px; margin-bottom:8px; display:none">
-  <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center">
-    <label style="color:var(--muted2); font-size:10px">Session Low</label>
+<div id="levelsPanel" style="display:none; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px 18px; margin-bottom:10px;">
+  <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center">
+    <label style="color:var(--muted2); font-size:10px; font-weight:500; letter-spacing:1px">Session Low</label>
     <input id="lvlLow" type="number" step="0.01" value="82.43" style="width:70px">
-    <label style="color:var(--muted2); font-size:10px">Support</label>
+    <label style="color:var(--muted2); font-size:10px; font-weight:500; letter-spacing:1px">Support</label>
     <input id="lvlSup" type="number" step="0.01" value="86.26" style="width:70px">
-    <label style="color:var(--muted2); font-size:10px">Resistance</label>
+    <label style="color:var(--muted2); font-size:10px; font-weight:500; letter-spacing:1px">Resistance</label>
     <input id="lvlRes" type="number" step="0.01" value="88.09" style="width:70px">
-    <label style="color:var(--muted2); font-size:10px">Breakout</label>
+    <label style="color:var(--muted2); font-size:10px; font-weight:500; letter-spacing:1px">Breakout</label>
     <input id="lvlBrk" type="number" step="0.01" value="90.68" style="width:70px">
     <button onclick="applyLevels()">SET</button>
   </div>
@@ -339,11 +511,11 @@ body {
 <div id="refreshWrap"><div id="refreshBar" style="width:100%"></div></div>
 
 <!-- TradingView Chart -->
-<div style="margin-bottom:10px; border-radius:10px; overflow:hidden; border:1px solid var(--border);">
+<div style="margin-bottom:12px; border-radius:14px; overflow:hidden; border:1px solid var(--border);">
   <div class="tradingview-widget-container" style="height:460px;">
     <iframe
       id="tvChart"
-      src="https://www.tradingview.com/widgetembed/?frameElementId=tvChart&symbol=BYBIT%3ASOLUSDT.P&interval=5&hidesidetoolbar=0&hidetoptoolbar=0&symboledit=1&saveimage=0&toolbarbg=0a0e1a&studies=STD%3BStochastic_RSI%1FSource%3Dclose%1FLength%3D14%1FSmoothing%3D3%1FStoch%20Length%3D14&theme=dark&style=1&timezone=Etc%2FUTC&studies_overrides=%7B%7D&overrides=%7B%22mainSeriesProperties.candleStyle.upColor%22%3A%22%2300ff88%22%2C%22mainSeriesProperties.candleStyle.downColor%22%3A%22%23ff3d5a%22%2C%22mainSeriesProperties.candleStyle.borderUpColor%22%3A%22%2300ff88%22%2C%22mainSeriesProperties.candleStyle.borderDownColor%22%3A%22%23ff3d5a%22%2C%22mainSeriesProperties.candleStyle.wickUpColor%22%3A%22%2300ff88%22%2C%22mainSeriesProperties.candleStyle.wickDownColor%22%3A%22%23ff3d5a%22%7D&enabled_features=%5B%5D&disabled_features=%5B%22use_localstorage_for_settings%22%5D&locale=en&utm_source=monitor&utm_medium=widget"
+      src="https://www.tradingview.com/widgetembed/?frameElementId=tvChart&symbol=BYBIT%3ASOLUSDT.P&interval=5&hidesidetoolbar=0&hidetoptoolbar=0&symboledit=1&saveimage=0&toolbarbg=0a0e1a&studies=STD%3BStochastic_RSI%1FSource%3Dclose%1FLength%3D14%1FSmoothing%3D3%1FStoch%20Length%3D14&theme=dark&style=1&timezone=Etc%2FUTC&studies_overrides=%7B%7D&overrides=%7B%22mainSeriesProperties.candleStyle.upColor%22%3A%22%2334d399%22%2C%22mainSeriesProperties.candleStyle.downColor%22%3A%22%23f87171%22%2C%22mainSeriesProperties.candleStyle.borderUpColor%22%3A%22%2334d399%22%2C%22mainSeriesProperties.candleStyle.borderDownColor%22%3A%22%23f87171%22%2C%22mainSeriesProperties.candleStyle.wickUpColor%22%3A%22%2334d399%22%2C%22mainSeriesProperties.candleStyle.wickDownColor%22%3A%22%23f87171%22%7D&enabled_features=%5B%5D&disabled_features=%5B%22use_localstorage_for_settings%22%5D&locale=en&utm_source=monitor&utm_medium=widget"
       style="width:100%; height:460px; border:none;"
       allowtransparency="true"
       scrolling="no"
@@ -351,14 +523,14 @@ body {
   </div>
 </div>
 
-<div id="tabBar" style="display:flex;gap:4px;margin-bottom:8px">
-  <button id="tabMonitor" onclick="showTab('monitor')" style="background:var(--cyan);color:#000;border:none;border-radius:4px;padding:5px 14px;font-weight:800;font-size:11px;cursor:pointer;letter-spacing:1px;font-family:inherit">Monitor</button>
-  <button id="tabHistory" onclick="showTab('history')" style="background:var(--border);color:var(--muted2);border:none;border-radius:4px;padding:5px 14px;font-weight:800;font-size:11px;cursor:pointer;letter-spacing:1px;font-family:inherit">History</button>
+<div id="tabBar" style="display:flex;gap:6px;margin-bottom:10px">
+  <button id="tabMonitor" onclick="showTab('monitor')" class="tab-btn tab-active">Monitor</button>
+  <button id="tabHistory" onclick="showTab('history')" class="tab-btn tab-inactive">History</button>
 </div>
 
 <div id="historyPanel" style="display:none">
   <div class="card">
-    <div class="card-title">🔥 FIRE History · Last 20</div>
+    <div class="card-title">Fire History · Last 20</div>
     <div id="historyList"></div>
   </div>
 </div>
@@ -367,7 +539,7 @@ body {
 
   <div class="header">
     <div>
-      <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap">
+      <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap">
         <span class="h-symbol" id="hSymbol">SOL/USDT</span>
         <span class="h-price" id="hPrice">—</span>
         <span class="h-badge" id="hChange">—</span>
@@ -376,46 +548,46 @@ body {
     </div>
     <div class="h-right">
       <div class="h-trend" id="hTrend">—</div>
-      <div class="muted" style="font-size:10px; letter-spacing:1px" id="hTime">—</div>
+      <div class="muted" style="font-size:10px; letter-spacing:1.5px; font-family:var(--font-mono)" id="hTime">—</div>
     </div>
   </div>
 
   <!-- Bias Gauge -->
-  <div class="card" style="margin-bottom:10px; padding: 14px 16px">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
-      <span style="font-size:9px; letter-spacing:2px; color:var(--red); text-transform:uppercase; font-weight:700">◀ Short</span>
-      <span id="biasLabel" style="font-size:11px; letter-spacing:1.5px; color:var(--muted2); text-transform:uppercase; font-weight:700">—</span>
-      <span style="font-size:9px; letter-spacing:2px; color:var(--green); text-transform:uppercase; font-weight:700">Long ▶</span>
+  <div class="card" style="margin-bottom:12px; padding:18px 20px">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+      <span style="font-size:10px; letter-spacing:2px; color:var(--red); text-transform:uppercase; font-weight:700">◀ Short</span>
+      <span id="biasLabel" style="font-size:12px; letter-spacing:1.5px; color:var(--muted2); text-transform:uppercase; font-weight:700; font-family:var(--font-display)">—</span>
+      <span style="font-size:10px; letter-spacing:2px; color:var(--green); text-transform:uppercase; font-weight:700">Long ▶</span>
     </div>
-    <div id="biasTrack" style="position:relative; height:10px; border-radius:5px; background:linear-gradient(to right, rgba(255,61,90,0.3), rgba(30,40,60,0.8) 50%, rgba(0,255,136,0.3)); border:1px solid var(--border);">
-      <div id="biasGhostNeedle" style="position:absolute; top:50%; transform:translate(-50%,-50%); width:2px; height:14px; border-radius:2px; background:rgba(255,60,60,0.75); box-shadow:0 0 6px rgba(255,60,60,0.6); transition: left 1.5s cubic-bezier(.4,0,.2,1);" title="3-cycle avg"></div>
-      <div id="biasNeedle" style="position:absolute; top:50%; transform:translate(-50%,-50%); width:3px; height:20px; border-radius:2px; background:var(--cyan); box-shadow:0 0 8px var(--cyan); transition: left 0.6s cubic-bezier(.4,0,.2,1);"></div>
-      <div style="position:absolute; left:20%;   top:0; width:1px; height:100%; background:rgba(255,61,90,0.4);"></div>
-      <div style="position:absolute; left:33.5%; top:0; width:1px; height:100%; background:rgba(255,61,90,0.2);"></div>
-      <div style="position:absolute; left:50%;   top:0; width:1px; height:100%; background:rgba(255,255,255,0.1);"></div>
-      <div style="position:absolute; left:66.5%; top:0; width:1px; height:100%; background:rgba(0,255,136,0.2);"></div>
-      <div style="position:absolute; left:80%;   top:0; width:1px; height:100%; background:rgba(0,255,136,0.4);"></div>
+    <div id="biasTrack" class="bias-gauge-track">
+      <div id="biasGhostNeedle" class="bias-ghost" title="3-cycle avg"></div>
+      <div id="biasNeedle" class="bias-needle"></div>
+      <div class="bias-zone-mark" style="left:20%; background:rgba(248,113,113,0.35);"></div>
+      <div class="bias-zone-mark" style="left:33.5%; background:rgba(248,113,113,0.15);"></div>
+      <div class="bias-zone-mark" style="left:50%; background:rgba(255,255,255,0.08);"></div>
+      <div class="bias-zone-mark" style="left:66.5%; background:rgba(52,211,153,0.15);"></div>
+      <div class="bias-zone-mark" style="left:80%; background:rgba(52,211,153,0.35);"></div>
     </div>
-    <div style="position:relative; margin-top:5px; height:14px">
-      <span style="position:absolute; left:20%;   transform:translateX(-50%); font-size:8px; color:var(--red); letter-spacing:0.5px">STRONG</span>
-      <span style="position:absolute; left:33.5%; transform:translateX(-50%); font-size:8px; color:rgba(255,61,90,0.5); letter-spacing:0.5px">LEAN</span>
-      <span style="position:absolute; left:50%;   transform:translateX(-50%); font-size:8px; color:var(--muted); letter-spacing:0.5px">NEUTRAL</span>
-      <span style="position:absolute; left:66.5%; transform:translateX(-50%); font-size:8px; color:rgba(0,255,136,0.5); letter-spacing:0.5px">LEAN</span>
-      <span style="position:absolute; left:80%;   transform:translateX(-50%); font-size:8px; color:var(--green); letter-spacing:0.5px">STRONG</span>
+    <div style="position:relative; margin-top:7px; height:16px">
+      <span class="bias-zone-label" style="left:20%; color:var(--red);">STRONG</span>
+      <span class="bias-zone-label" style="left:33.5%; color:rgba(248,113,113,0.5);">LEAN</span>
+      <span class="bias-zone-label" style="left:50%; color:var(--muted);">NEUTRAL</span>
+      <span class="bias-zone-label" style="left:66.5%; color:rgba(52,211,153,0.5);">LEAN</span>
+      <span class="bias-zone-label" style="left:80%; color:var(--green);">STRONG</span>
     </div>
   </div>
 
   <!-- Scalpability Scale -->
-  <div class="card" style="margin-bottom:10px; padding:14px 16px">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
-      <span style="font-size:9px; letter-spacing:2px; color:var(--muted2); text-transform:uppercase; font-weight:700">Scalpability</span>
-      <span id="scalpScore" style="font-size:30px; font-weight:800; color:var(--cyan); letter-spacing:-1px; line-height:1">—</span>
-      <span id="scalpLabel" style="font-size:10px; letter-spacing:2px; color:var(--muted2); text-transform:uppercase; font-weight:700">—</span>
+  <div class="card" style="margin-bottom:12px; padding:18px 20px">
+    <div class="scalp-header">
+      <span style="font-size:10px; letter-spacing:2px; color:var(--muted2); text-transform:uppercase; font-weight:700; font-family:var(--font-body)">Scalpability</span>
+      <span id="scalpScore" class="scalp-score">—</span>
+      <span id="scalpLabel" style="font-size:11px; letter-spacing:2px; color:var(--muted2); text-transform:uppercase; font-weight:700; font-family:var(--font-body)">—</span>
     </div>
-    <div style="position:relative; height:7px; border-radius:4px; background:var(--border); margin-bottom:12px; overflow:hidden">
-      <div id="scalpBar" style="height:100%; width:0%; border-radius:4px; background:var(--cyan); transition:width 0.6s cubic-bezier(.4,0,.2,1);"></div>
+    <div class="scalp-track">
+      <div id="scalpBar" class="scalp-fill"></div>
     </div>
-    <div id="scalpReasons" style="display:flex; flex-direction:column; gap:5px;"></div>
+    <div id="scalpReasons" style="display:flex; flex-direction:column; gap:4px;"></div>
   </div>
 
   <!-- Session levels -->
@@ -447,7 +619,7 @@ body {
   </div>
 
   <!-- Perp Data Strip -->
-  <div class="session-banner" id="perpStrip" style="margin-bottom:10px">
+  <div class="session-banner" id="perpStrip" style="margin-bottom:12px">
     <div class="sb-item">
       <div class="sb-label">Funding Rate</div>
       <div id="pFunding" class="sb-val cyan">—</div>
@@ -466,8 +638,8 @@ body {
     </div>
   </div>
 
-  <!-- Context Strip: BTC correlation, OI trend, BB squeeze, round level -->
-  <div class="session-banner" id="contextStrip" style="margin-bottom:10px">
+  <!-- Context Strip -->
+  <div class="session-banner" id="contextStrip" style="margin-bottom:12px">
     <div class="sb-item">
       <div class="sb-label">BTC Context</div>
       <div id="cBTC" class="sb-val">—</div>
@@ -487,7 +659,7 @@ body {
   </div>
 
   <!-- Indicators -->
-  <div class="card" style="margin-bottom:10px">
+  <div class="card" style="margin-bottom:12px">
     <div class="card-title">Indicators</div>
     <div id="indicators"></div>
   </div>
@@ -500,9 +672,9 @@ body {
   </div>
 
   <!-- OB / FVG Card -->
-  <div class="card" style="margin-bottom:10px" id="obfvgCard">
+  <div class="card" style="margin-bottom:12px" id="obfvgCard">
     <div class="card-title">Order Blocks &amp; Fair Value Gaps · 15m</div>
-    <div id="obfvgContext" style="margin-bottom:8px"></div>
+    <div id="obfvgContext" style="margin-bottom:10px"></div>
     <div id="obfvgPanel"></div>
   </div>
 
@@ -517,14 +689,14 @@ body {
   </div>
 
   <!-- Flags -->
-  <div id="flagsWrap" class="hidden" style="margin-bottom:10px">
-    <div class="card" style="border-color:rgba(255,184,0,.3)">
-      <div class="card-title" style="color:var(--yellow)">⚠ Red Flags</div>
+  <div id="flagsWrap" class="hidden" style="margin-bottom:12px">
+    <div class="card" style="border-color:rgba(251,191,36,.25)">
+      <div class="card-title" style="color:var(--yellow)">Red Flags</div>
       <div id="flags"></div>
     </div>
   </div>
 
-  <div style="text-align:center; color:var(--muted); font-size:10px; letter-spacing:1.5px; padding:8px 0; text-transform:uppercase">
+  <div class="footer">
     SOL Monitor · Bybit Public API · No installation required
   </div>
 </div>
@@ -599,7 +771,7 @@ function renderHistory() {
   try { log = JSON.parse(localStorage.getItem('fire-log') || '[]'); } catch(e) {}
   const el = document.getElementById('historyList');
   if (!log.length) {
-    el.innerHTML = '<div style="color:var(--muted2);font-size:11px;padding:12px 0">No FIRE events logged yet — they appear here as they trigger.</div>';
+    el.innerHTML = '<div style="color:var(--muted2);font-size:12px;padding:16px 0">No FIRE events logged yet — they appear here as they trigger.</div>';
     return;
   }
   el.innerHTML = log.map(e => {
@@ -607,12 +779,12 @@ function renderHistory() {
     const time = d.toLocaleString();
     const col  = e.dir === 'LONG' ? 'var(--green)' : 'var(--red)';
     const icon = e.dir === 'LONG' ? '🔥▲' : '🔥▼';
-    return `<div class="sig-item" style="flex-direction:column;gap:3px;padding:8px 0">
+    return `<div class="sig-item" style="flex-direction:column;gap:4px;padding:10px 0">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <span style="color:${col};font-weight:800;font-size:12px">${icon} ${e.dir} · $${fmtP(e.px)} · ${e.sc}/4</span>
-        <span style="color:var(--muted2);font-size:10px;white-space:nowrap">${time}</span>
+        <span style="color:${col};font-weight:700;font-size:13px;font-family:var(--font-display)">${icon} ${e.dir} · $${fmtP(e.px)} · ${e.sc}/4</span>
+        <span style="color:var(--muted2);font-size:10px;white-space:nowrap;font-family:var(--font-mono)">${time}</span>
       </div>
-      <div style="color:var(--muted2);font-size:10px">K5:${e.ind.k5} K1:${e.ind.k1} · 15m:${e.ind.trend15} 1H:${e.ind.trend1h} · BTC:${e.ind.btc} · OI:${e.ind.oi}</div>
+      <div style="color:var(--muted2);font-size:10px;font-family:var(--font-mono)">K5:${e.ind.k5} K1:${e.ind.k1} · 15m:${e.ind.trend15} 1H:${e.ind.trend1h} · BTC:${e.ind.btc} · OI:${e.ind.oi}</div>
     </div>`;
   }).join('');
 }
@@ -626,13 +798,13 @@ function showTab(tab) {
     monitor.style.display = 'none';
     history.style.display = '';
     renderHistory();
-    btnM.style.background = 'var(--border)'; btnM.style.color = 'var(--muted2)';
-    btnH.style.background = 'var(--cyan)';   btnH.style.color = '#000';
+    btnM.className = 'tab-btn tab-inactive';
+    btnH.className = 'tab-btn tab-active';
   } else {
     monitor.style.display = '';
     history.style.display = 'none';
-    btnM.style.background = 'var(--cyan)';   btnM.style.color = '#000';
-    btnH.style.background = 'var(--border)'; btnH.style.color = 'var(--muted2)';
+    btnM.className = 'tab-btn tab-active';
+    btnH.className = 'tab-btn tab-inactive';
   }
 }
 
@@ -843,20 +1015,17 @@ function findFVGs(candles, price, lookback = 60) {
     // Bullish FVG: c3.low > c1.high — gap between c1 top and c3 bottom
     if (c3.low > c1.high) {
       const top = c3.low, bot = c1.high, mid = (top + bot) / 2;
-      // Filled when price reaches CE (midpoint) — zone stays active while price reacts in upper half
       const filled = price < mid;
       bullish.push({ top, bot, mid, filled });
     }
     // Bearish FVG: c3.high < c1.low — gap between c1 bottom and c3 top
     if (c3.high < c1.low) {
       const top = c1.low, bot = c3.high, mid = (top + bot) / 2;
-      // Filled when price reaches CE (midpoint) — zone stays active while price reacts in lower half
       const filled = price > mid;
       bearish.push({ top, bot, mid, filled });
     }
   }
 
-  // Nearest unfilled bullish FVG below price, nearest unfilled bearish above price
   const bFVG = bullish.filter(f => !f.filled && f.top < price).sort((a,b) => b.top - a.top)[0] || null;
   const sFVG = bearish.filter(f => !f.filled && f.bot > price).sort((a,b) => a.bot - b.bot)[0] || null;
   return { bFVG, sFVG };
@@ -869,35 +1038,28 @@ function findOBs(candles, price, lookback = 80) {
 
   for (let i = 1; i < slice.length - 2; i++) {
     const c = slice[i];
-    // Bullish OB: last bearish candle before a strong impulsive bullish move
     if (c.close < c.open) {
-      // Check for strong bullish displacement in next 1-3 candles
       const moveUp = slice.slice(i + 1, i + 4).reduce((max, x) => Math.max(max, x.high), 0);
       const displacement = (moveUp - c.high) / c.high;
-      if (displacement > 0.004) { // at least 0.4% move away
+      if (displacement > 0.004) {
         const ob = { high: c.high, low: c.low, mid: (c.high + c.low) / 2 };
-        // Mitigated only when a subsequent candle CLOSES below the OB low (full invalidation)
-        // A wick touch is a reaction from the OB, not mitigation
         const subsequent = slice.slice(i + 1);
         const mitigated = subsequent.some(x => x.close < ob.low);
         bullOBs.push({ ...ob, mitigated });
       }
     }
-    // Bearish OB: last bullish candle before a strong impulsive bearish move
     if (c.close > c.open) {
       const moveDown = slice.slice(i + 1, i + 4).reduce((min, x) => Math.min(min, x.low), Infinity);
       const displacement = (c.low - moveDown) / c.low;
       if (displacement > 0.004) {
         const ob = { high: c.high, low: c.low, mid: (c.high + c.low) / 2 };
         const subsequent = slice.slice(i + 1);
-        // Mitigated only when a subsequent candle CLOSES above the OB high
         const mitigated = subsequent.some(x => x.close > ob.high);
         bearOBs.push({ ...ob, mitigated });
       }
     }
   }
 
-  // Nearest bullish OB below price, nearest bearish OB above price
   const bOB = bullOBs.filter(o => o.high < price).sort((a,b) => b.high - a.high)[0] || null;
   const sOB = bearOBs.filter(o => o.low > price).sort((a,b) => a.low - b.low)[0] || null;
   return { bOB, sOB };
@@ -930,10 +1092,8 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
   const mhp   = prev(mac5.hist.filter(v=>!isNaN(v)));
   const ml    = last(mac5.line.filter(v=>!isNaN(v)));
   const ms    = last(mac5.sig.filter(v=>!isNaN(v)));
-  // 5m volume spike — aligned with 5m BB + StochRSI signals
   const vs5m  = last(vspk5.filter(v=>!isNaN(v)));
 
-  // BB squeeze: track band width over bar history; flag if current is in bottom 10%
   const bbWidths = bb5.upper.map((u, i) => {
     const lo = bb5.lower[i], mi = bb5.mid[i];
     if (isNaN(u) || isNaN(lo) || !mi) return NaN;
@@ -943,19 +1103,16 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
   const bbW50sorted = [...bbWidths.slice(-50)].sort((a, b) => a - b);
   const bbSqueeze   = bbW50sorted.length >= 10 && curBBWidth <= bbW50sorted[Math.floor(bbW50sorted.length * 0.10)];
 
-  // 15m trend: price vs EMA(10) on 15m — more stable than 5-bar close compare
   const cl15 = cl(c15m);
   const ema15 = ema(cl15, 10);
   const lastEma15 = last(ema15.filter(v=>!isNaN(v)));
   const trend15 = cl15[cl15.length-1] > lastEma15 ? 'BULLISH' : 'BEARISH';
 
-  // 1H trend: price vs EMA(20) on 1H — higher timeframe structural bias
   const cl1h = cl(c1h);
   const ema1h = ema(cl1h, 20);
   const lastEma1h = last(ema1h.filter(v=>!isNaN(v)));
   const trend1h = cl1h[cl1h.length-1] > lastEma1h ? 'BULLISH' : 'BEARISH';
 
-  // BTC correlation context (btc5m = BTCUSDT 5m klines)
   let btcContext = 'unknown';
   if (btc5m.length >= 10) {
     const btcCl      = btc5m.map(c => c.close);
@@ -973,7 +1130,6 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
     else                                                        btcContext = 'mixed';
   }
 
-  // OI direction trend from recent snapshots (oldest→newest)
   let oiTrend = 'neutral';
   if (oiHist.length >= 4) {
     const old3 = oiHist.slice(0, 3).reduce((a, b) => a + b, 0) / 3;
@@ -984,7 +1140,6 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
     else if (chg < -0.005) oiTrend = 'falling';
   }
 
-  // Funding history: persistent crowding check (rates already in %)
   let fundingTrend = 'neutral', fundingAvg = 0;
   if (fundingHist.length >= 3) {
     fundingAvg = fundingHist.reduce((a, b) => a + b, 0) / fundingHist.length;
@@ -994,7 +1149,6 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
 
   const price   = last(c1m).close;
 
-  // Round number proximity — step scales with price magnitude
   const rndStep    = price >= 100 ? 5 : price >= 10 ? 1 : price >= 1 ? 0.5 : price >= 0.1 ? 0.05 : price >= 0.01 ? 0.005 : 0.001;
   const rndBelow   = Math.floor(price / rndStep) * rndStep;
   const rndAbove   = Math.ceil(price / rndStep) * rndStep;
@@ -1005,24 +1159,19 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
   const p1close = prev(c1m).close;
   const p1open  = prev(c1m).open;
 
-  // Bounce: green candle after red, minimum body 0.25% of price (raised from 0.15% to cut noise)
   const minBody   = price * 0.0025;
   const bounce    = price > l1open && (price - l1open) >= minBody && p1close < p1open;
   const rejection = price < l1open && (l1open - price) >= minBody && p1close > p1open;
 
-  // Liquidity sweep detection: price broke above/below a recent swing high/low then closed back
-  // Sweep up then back: high > 3-bar high but close < that high — potential stop hunt
   const h3max = Math.max(...c1m.slice(-5, -1).map(c => c.high));
   const l3min  = Math.min(...c1m.slice(-5, -1).map(c => c.low));
-  const sweepUp   = last(c1m).high > h3max && last(c1m).close < h3max; // wick above, closed back
-  const sweepDown = last(c1m).low  < l3min  && last(c1m).close > l3min; // wick below, closed back
+  const sweepUp   = last(c1m).high > h3max && last(c1m).close < h3max;
+  const sweepDown = last(c1m).low  < l3min  && last(c1m).close > l3min;
 
-  // Session level proximity check
   const nearSupport   = Math.abs(price - SESSION_LEVELS.support1) / price < 0.005;
   const nearResistance= Math.abs(price - SESSION_LEVELS.resistance1) / price < 0.005;
   const nearBreakout  = Math.abs(price - SESSION_LEVELS.breakout) / price < 0.005;
 
-  // OB / FVG — resolved early for confluence scoring
   const { bFVG, sFVG } = findFVGs(c15m, price);
   const { bOB,  sOB  } = findOBs(c15m,  price);
   const pctFrom = z => Math.abs(z - price) / price * 100;
@@ -1182,7 +1331,6 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
   if (fundingTrend === 'persistently_short')
     redFlags.push(`Avg funding ${fundingAvg.toFixed(4)}% (${fundingHist.length} periods) — market persistently net short, short squeeze risk elevated`);
 
-  // Candle body quality: avg body/range ratio over last 8 1m bars (0=all wicks, 1=all body)
   const recentBars = c1m.slice(-8);
   const bodyQuality = recentBars.reduce((sum, c) => {
     const body = Math.abs(c.close - c.open);
@@ -1214,7 +1362,6 @@ function fmtP(n) {
   if (v >= 0.01)  return v.toLocaleString('en-US', {minimumFractionDigits:5, maximumFractionDigits:5});
   return v.toLocaleString('en-US', {minimumFractionDigits:6, maximumFractionDigits:6});
 }
-// Format small indicator values (MACD etc) — scales decimals to the magnitude of the value itself
 function fmtSig(n) {
   const a = Math.abs(parseFloat(n));
   if (a >= 1)      return parseFloat(n).toFixed(4);
@@ -1251,8 +1398,8 @@ function renderPanel(score, side, items, cardId, headId, itemsId) {
   const label  = fire ? `🔥 ${side} — FIRE` : `${isLong?'▲':'▼'} ${side}`;
   const pct    = Math.min(100, score / 4 * 100);
   const bStyle = fire
-    ? `background:rgba(${isLong?'0,255,136':'255,61,90'},.2);color:var(--${color});border:1px solid var(--${color})`
-    : ok ? `background:rgba(${isLong?'0,255,136':'255,61,90'},.1);color:var(--${color})`
+    ? `background:rgba(${isLong?'52,211,153':'248,113,113'},.18);color:var(--${color});border:1px solid var(--${color})`
+    : ok ? `background:rgba(${isLong?'52,211,153':'248,113,113'},.08);color:var(--${color})`
          : `background:var(--border);color:var(--muted2)`;
   document.getElementById(cardId).className = `card${fire?(isLong?' fire-long':' fire-short'):''}`;
   document.getElementById(headId).innerHTML = `
@@ -1263,9 +1410,8 @@ function renderPanel(score, side, items, cardId, headId, itemsId) {
     <div class="score-track"><div class="score-fill fill-${color}" style="width:${pct}%"></div></div>`;
   const metItems   = items.filter(([ok]) => ok);
   const unmetItems = items.filter(([ok]) => !ok);
-  // Show all met conditions + the single highest-value unmet condition (what's needed next)
   const displayed  = score >= 3.0
-    ? items                                          // FIRE: show everything
+    ? items
     : [...metItems, ...(unmetItems.length ? [unmetItems[0]] : [])];
   document.getElementById(itemsId).innerHTML = displayed.map(([ok,t])=>sigItem(ok,t)).join('');
 }
@@ -1277,14 +1423,12 @@ function render(sig, supports, resistances, ticker) {
   const chg = parseFloat(ticker.price24hPcnt||0) * 100;
   const up  = chg >= 0;
 
-  // ── PERP DATA (already in ticker, just unused before) ─────────────────────────
-  const fundingRate    = parseFloat(ticker.fundingRate    || 0) * 100; // as %
+  const fundingRate    = parseFloat(ticker.fundingRate    || 0) * 100;
   const markPrice      = parseFloat(ticker.markPrice      || 0);
-  const openInterest   = parseFloat(ticker.openInterestValue || 0);    // in USDT
+  const openInterest   = parseFloat(ticker.openInterestValue || 0);
   const nextFundingMs  = parseInt(ticker.nextFundingTime  || 0);
   const minToFunding   = Math.max(0, Math.round((nextFundingMs - Date.now()) / 60000));
 
-  // OI direction vs last cycle
   const oiDir = prevOI === null ? '' : openInterest > prevOI ? ' ▲' : openInterest < prevOI ? ' ▼' : '';
   prevOI = openInterest;
 
@@ -1299,7 +1443,6 @@ function render(sig, supports, resistances, ticker) {
   const oiColor = oiDir === ' ▲' ? 'var(--green)' : oiDir === ' ▼' ? 'var(--red)' : 'var(--cyan)';
   document.getElementById('pOI').innerHTML = `<span style="color:${oiColor}">$${oiM}${oiDir}</span>`;
 
-  // Funding rate red flag (injected into sig.redFlags before render)
   if (fundingRate > 0.05)
     sig.redFlags.unshift(`Funding +${fundingRate.toFixed(4)}% — longs being squeezed every 8h, long signals carry higher reversal risk`);
   if (fundingRate < -0.05)
@@ -1307,11 +1450,9 @@ function render(sig, supports, resistances, ticker) {
   if (minToFunding <= 10)
     sig.redFlags.unshift(`Funding payment in ${minToFunding}m — avoid new entries, market may spike then reverse`);
 
-  // Update 24h high/low in session banner
   document.getElementById('s24hHigh').textContent = '$' + fmtP(ticker.highPrice24h);
   document.getElementById('s24hLow').textContent  = '$' + fmtP(ticker.lowPrice24h);
 
-  // ── CONTEXT STRIP ─────────────────────────────────────────────────────────────
   const _renderBase = SYMBOL.replace(/USDT$|BUSD$|USD$/, '');
   const btcLabels = {
     sol_lagging: { text: `${_renderBase} LAGGING ▲`, color: 'var(--yellow)' },
@@ -1346,37 +1487,31 @@ function render(sig, supports, resistances, ticker) {
   }
 
   // ── BIAS GAUGE ────────────────────────────────────────────────────────────────
-  // Raw score differential: ±1 range
   let bias = (sig.longScore - sig.shortScore) / 4;
 
-  // Continuous indicator nudges — keep gauge responsive outside signal extremes
   const bbRange = sig.bbHi - sig.bbLo;
   if (bbRange > 0) {
-    const bbPos = (sig.price - sig.bbLo) / bbRange; // 0=at lower BB, 1=at upper BB
-    bias += (0.5 - bbPos) * 0.3; // ±0.15 — price near lower band leans bullish
+    const bbPos = (sig.price - sig.bbLo) / bbRange;
+    bias += (0.5 - bbPos) * 0.3;
   }
-  bias += (50 - sig.k5) / 100 * 0.2; // ±0.10 — Stoch RSI 5m position
-  bias += sig.macdHist > 0 ? 0.05 : -0.05; // ±0.05 — MACD histogram sign
+  bias += (50 - sig.k5) / 100 * 0.2;
+  bias += sig.macdHist > 0 ? 0.05 : -0.05;
 
-  // OB/FVG proximity nudge (±0.15 max)
   const pctFromG = (zone) => Math.abs(zone - sig.price) / sig.price * 100;
   if (sig.bOB && !sig.bOB.mitigated && pctFromG(sig.bOB.high) < 0.5) bias += 0.08;
   if (sig.bFVG && pctFromG(sig.bFVG.top) < 0.5)                       bias += 0.07;
   if (sig.sOB && !sig.sOB.mitigated && pctFromG(sig.sOB.low) < 0.5)   bias -= 0.08;
   if (sig.sFVG && pctFromG(sig.sFVG.bot) < 0.5)                        bias -= 0.07;
 
-  // 15m trend nudge
   if (sig.trend15 === 'BULLISH') bias += 0.08;
   if (sig.trend15 === 'BEARISH') bias -= 0.08;
-  // 1H trend nudge — stronger weight as HTF context
   if (sig.trend1h === 'BULLISH') bias += 0.12;
   if (sig.trend1h === 'BEARISH') bias -= 0.12;
 
   bias = Math.max(-1, Math.min(1, bias));
   const biasPct   = Math.round(bias * 100);
-  const needlePct = (bias + 1) / 2 * 100; // 0–100% for left position
+  const needlePct = (bias + 1) / 2 * 100;
 
-  // 3-cycle rolling average for ghost needle
   biasHistory.push(bias);
   if (biasHistory.length > 3) biasHistory.shift();
   const avgBias  = biasHistory.reduce((a, b) => a + b, 0) / biasHistory.length;
@@ -1397,7 +1532,6 @@ function render(sig, supports, resistances, ticker) {
   document.getElementById('biasLabel').textContent = biasText;
 
   // ── SCALPABILITY SCORE ────────────────────────────────────────────────────────
-  // 1. BB width volatility (0-25): sweet spot 0.5-2%
   const bbWidthPct = (sig.bbHi - sig.bbLo) / sig.bbMid * 100;
   let bbSc;
   if      (bbWidthPct < 0.3) bbSc = bbWidthPct / 0.3 * 10;
@@ -1406,17 +1540,10 @@ function render(sig, supports, resistances, ticker) {
   else if (bbWidthPct < 4.0) bbSc = 25 - (bbWidthPct - 2.0) / 2.0 * 10;
   else                       bbSc = 15;
 
-  // 2. Volume relative to 20-bar avg (0-25): 2x = full score
   const volSc = Math.min(25, Math.max(0, (sig.vs - 0.5) / 1.5 * 25));
-
-  // 3. Candle body quality (0-25): clean directional bodies vs wicks
   const candleSc = sig.bodyQuality * 25;
-
-  // 4. Signal readiness (0-15): best score proximity to fire threshold
   const bestSig = Math.max(sig.longScore, sig.shortScore);
   const readySc = (bestSig / 4) * 15;
-
-  // 5. Momentum clarity (0-10): Stoch RSI 5m distance from neutral 50
   const momSc = Math.abs(sig.k5 - 50) / 50 * 10;
 
   const scalpTotal = Math.round(bbSc + volSc + candleSc + readySc + momSc);
@@ -1442,7 +1569,7 @@ function render(sig, supports, resistances, ticker) {
     .map(([ok, txt, pts, max]) =>
       `<div class="sig-item"><span class="sig-icon ${ok?'green':'red'}">${ok?'✔':'✘'}</span>` +
       `<span style="${ok?'':'color:var(--muted2)'}">${txt}</span>` +
-      `<span style="margin-left:auto;padding-left:8px;color:var(--muted);font-size:10px;white-space:nowrap">${pts}/${max}</span></div>`)
+      `<span style="margin-left:auto;padding-left:8px;color:var(--muted);font-size:10px;white-space:nowrap;font-family:var(--font-mono)">${pts}/${max}</span></div>`)
     .join('');
 
   // Header
@@ -1480,9 +1607,9 @@ function render(sig, supports, resistances, ticker) {
   document.getElementById('macd').innerHTML = `
     <div class="big-num ${mc}">${mh>=0?'▲':'▼'} ${mh>=0?'+':''}${fmtSig(mh)}</div>
     <div class="big-sub">Line ${fmtSig(sig.macd)} &nbsp;·&nbsp; Sig ${fmtSig(sig.macdSig)}</div>
-    <span class="${mc}" style="font-size:10px;letter-spacing:1px">${mh>0?'RISING — BULLISH':'FALLING — BEARISH'}</span>`;
+    <span class="${mc}" style="font-size:10px;letter-spacing:1.5px;font-weight:600">${mh>0?'RISING — BULLISH':'FALLING — BEARISH'}</span>`;
 
-  // Volume (5m for signal scoring)
+  // Volume
   const vs  = sig.vs;
   const vc  = vs >= 2 ? 'yellow' : 'cyan';
   const vp  = Math.min(100, vs / 5 * 100);
@@ -1490,9 +1617,9 @@ function render(sig, supports, resistances, ticker) {
     <div class="big-num ${vc}">${vs.toFixed(2)}x</div>
     <div class="big-sub">vs 20-bar 5m avg</div>
     ${barHTML(vp, vc, 7)}
-    <div class="${vc}" style="font-size:10px;margin-top:6px;letter-spacing:1px">${vs>=2?'⚡ SPIKE':'NORMAL'}</div>`;
+    <div class="${vc}" style="font-size:10px;margin-top:8px;letter-spacing:1.5px;font-weight:600">${vs>=2?'⚡ SPIKE':'NORMAL'}</div>`;
 
-  // Levels — merge auto-detected + session levels only (OB/FVG in dedicated card)
+  // Levels
   const sessionRes = [SESSION_LEVELS.resistance1, SESSION_LEVELS.breakout].filter(l => l > 0 && l > sig.price);
   const sessionSup = [SESSION_LEVELS.support1, SESSION_LEVELS.sessionLow].filter(l => l > 0 && l < sig.price);
   const allRes = [...new Set([...resistances, ...sessionRes])].sort((a,b)=>a-b).filter(r => r > sig.price).slice(-3);
@@ -1515,7 +1642,6 @@ function render(sig, supports, resistances, ticker) {
   const pctFrom = (zone) => Math.abs(zone - sig.price) / sig.price * 100;
   const ctxAlerts = [];
 
-  // Demand zones close below — bad for shorts
   if (sig.bOB && !sig.bOB.mitigated) {
     const d = pctFrom(sig.bOB.high);
     if (d < 0.25)
@@ -1531,7 +1657,6 @@ function render(sig, supports, resistances, ticker) {
       ctxAlerts.push({ level: 'warn', icon: '⚠', text: `Bullish FVG ${d.toFixed(2)}% below — FVG may act as magnet and support shorts` });
   }
 
-  // Supply zones close above — bad for longs
   if (sig.sOB && !sig.sOB.mitigated) {
     const d = pctFrom(sig.sOB.low);
     if (d < 0.25)
@@ -1547,7 +1672,6 @@ function render(sig, supports, resistances, ticker) {
       ctxAlerts.push({ level: 'warn', icon: '⚠', text: `Bearish FVG ${d.toFixed(2)}% above — consider using CE as TP target rather than holding through it` });
   }
 
-  // Clean context — no nearby opposing zones
   const demandClose = (sig.bOB && pctFrom(sig.bOB.high) < 0.5) || (sig.bFVG && pctFrom(sig.bFVG.top) < 0.5);
   const supplyClose = (sig.sOB && pctFrom(sig.sOB.low) < 0.5)  || (sig.sFVG && pctFrom(sig.sFVG.bot) < 0.5);
   if (!demandClose && !supplyClose)
@@ -1599,13 +1723,13 @@ function render(sig, supports, resistances, ticker) {
 
   panel.innerHTML = zoneHtml
     ? `<div class="obfvg-grid">${zoneHtml}</div>`
-    : `<div style="color:var(--muted2);font-size:11px;padding:4px 0">No active OB or FVG detected</div>`;
+    : `<div style="color:var(--muted2);font-size:12px;padding:4px 0">No active OB or FVG detected</div>`;
 
   // Signals
   renderPanel(sig.longScore,  'LONG',  sig.longItems,  'longCard',  'longHeader',  'longItems');
   renderPanel(sig.shortScore, 'SHORT', sig.shortItems, 'shortCard', 'shortHeader', 'shortItems');
 
-  // Fire alerts — only trigger on the transition into FIRE, not on every refresh
+  // Fire alerts
   const fireLong  = sig.longScore  >= 3.0;
   const fireShort = sig.shortScore >= 3.0;
   if (fireLong  && !prevFireLong)  { fireAlert('LONG');  logFireEvent('LONG',  sig.price, sig.longScore,  sig); }
