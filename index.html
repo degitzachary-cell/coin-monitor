@@ -650,6 +650,8 @@ function applyConfig() {
   document.getElementById('cfgSymbol').value  = SYMBOL;
   document.getElementById('cfgRefresh').value = REFRESH;
   try { localStorage.setItem('coin-monitor-symbol', SYMBOL); } catch(e) {}
+  const tvIframe = document.getElementById('tvChart');
+  tvIframe.src = tvIframe.src.replace(/BYBIT%3A[A-Z0-9.]+/, 'BYBIT%3A' + SYMBOL + '.P');
   if (fetchTimer) clearInterval(fetchTimer);
   fetchData();
   fetchTimer = setInterval(fetchData, REFRESH * 1000);
@@ -1068,14 +1070,15 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
   if ((k1 < k1p) || k1 < 15) {
     longScore += 0.25; longItems.push([true,  `Stoch RSI 1m cooling  [${k1.toFixed(1)}]`]);
   }
+  const _base = SYMBOL.replace(/USDT$|BUSD$|USD$/, '');
   if (btcContext === 'sol_lagging') {
-    longScore += 0.25; longItems.push([true,  'BTC bullish, SOL lagging — catch-up long potential ▲']);
+    longScore += 0.25; longItems.push([true,  `BTC bullish, ${_base} lagging — catch-up long potential ▲`]);
   } else if (btcContext === 'sol_strong') {
-    longScore += 0.5;  longItems.push([true,  'BTC weak but SOL holding — relative strength long ✦']);
+    longScore += 0.5;  longItems.push([true,  `BTC weak but ${_base} holding — relative strength long ✦`]);
   } else if (btcContext === 'sol_weak') {
-    longItems.push([false, 'SOL underperforming BTC — avoid long here']);
+    longItems.push([false, `${_base} underperforming BTC — avoid long here`]);
   } else if (btcContext === 'confirming') {
-    longScore += 0.15; longItems.push([true,  'BTC & SOL both bullish — confirming move ▲']);
+    longScore += 0.15; longItems.push([true,  `BTC & ${_base} both bullish — confirming move ▲`]);
   }
   if (oiTrend === 'rising' && trend15 === 'BULLISH') {
     longScore += 0.25; longItems.push([true,  'OI rising + price up — real buying, conviction long ▲']);
@@ -1133,9 +1136,9 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
     shortScore += 0.5; shortItems.push([true,  `At session resistance $${nearBreakout ? SESSION_LEVELS.breakout : SESSION_LEVELS.resistance1} ⚡`]);
   }
   if (btcContext === 'sol_weak') {
-    shortScore += 0.25; shortItems.push([true,  'SOL underperforming BTC — weakness confirms short ▼']);
+    shortScore += 0.25; shortItems.push([true,  `${_base} underperforming BTC — weakness confirms short ▼`]);
   } else if (btcContext === 'sol_strong') {
-    shortItems.push([false, 'SOL showing relative strength vs BTC — risky short']);
+    shortItems.push([false, `${_base} showing relative strength vs BTC — risky short`]);
   }
   if (oiTrend === 'rising' && trend15 === 'BEARISH') {
     shortScore += 0.25; shortItems.push([true,  'OI rising + price down — shorts opening, confirms bearish ▼']);
@@ -1290,10 +1293,11 @@ function render(sig, supports, resistances, ticker) {
   document.getElementById('s24hLow').textContent  = '$' + fmt(ticker.lowPrice24h);
 
   // ── CONTEXT STRIP ─────────────────────────────────────────────────────────────
+  const _renderBase = SYMBOL.replace(/USDT$|BUSD$|USD$/, '');
   const btcLabels = {
-    sol_lagging: { text: 'SOL LAGGING ▲', color: 'var(--yellow)' },
-    sol_strong:  { text: 'SOL STRONG ✦',  color: 'var(--green)'  },
-    sol_weak:    { text: 'SOL WEAK ▼',    color: 'var(--red)'    },
+    sol_lagging: { text: `${_renderBase} LAGGING ▲`, color: 'var(--yellow)' },
+    sol_strong:  { text: `${_renderBase} STRONG ✦`,  color: 'var(--green)'  },
+    sol_weak:    { text: `${_renderBase} WEAK ▼`,    color: 'var(--red)'    },
     confirming:  { text: 'CONFIRMING ▲',  color: 'var(--green)'  },
     mixed:       { text: 'MIXED',          color: 'var(--cyan)'   },
     unknown:     { text: '—',             color: 'var(--muted2)' },
