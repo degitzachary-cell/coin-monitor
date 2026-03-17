@@ -1560,16 +1560,16 @@ function render(sig, supports, resistances, ticker) {
 
   // ── OB / FVG CARD ─────────────────────────────────────────────────────────────
   function obfvgZone(type, cssClass, hi, ce, lo, price, label) {
-    const dist = ((ce - price) / price * 100);
-    const distStr = (dist >= 0 ? '+' : '') + dist.toFixed(2) + '%';
+    const dist = ce - price;
     const distColor = dist >= 0 ? 'green' : 'red';
+    const distSign = dist >= 0 ? '+' : '';
     const ceColor = cssClass === 'supply' || cssClass === 'fvg-s' ? 'var(--red)' : cssClass === 'demand' || cssClass === 'fvg-b' ? 'var(--green)' : 'var(--yellow)';
     return `<div class="obfvg-zone ${cssClass}">
       <div class="obfvg-type ${cssClass === 'supply' || cssClass === 'fvg-s' ? 'red' : 'green'}">${type}</div>
-      <div class="obfvg-hi muted">${fmt(hi, 2)}</div>
-      <div class="obfvg-ce" style="background:${ceColor}22;color:${ceColor}">${fmt(ce, 2)} <span style="font-size:8px;letter-spacing:1px">${label}</span></div>
-      <div class="obfvg-lo muted">${fmt(lo, 2)}</div>
-      <div class="obfvg-dist ${distColor}">${distStr} from price</div>
+      <div class="obfvg-hi muted">${fmtP(hi)}</div>
+      <div class="obfvg-ce" style="background:${ceColor}22;color:${ceColor}">${fmtP(ce)} <span style="font-size:8px;letter-spacing:1px">${label}</span></div>
+      <div class="obfvg-lo muted">${fmtP(lo)}</div>
+      <div class="obfvg-dist ${distColor}">${distSign}${fmtP(Math.abs(dist))} from price</div>
     </div>`;
   }
 
