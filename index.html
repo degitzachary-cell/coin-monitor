@@ -609,7 +609,7 @@ function renderHistory() {
     const icon = e.dir === 'LONG' ? '🔥▲' : '🔥▼';
     return `<div class="sig-item" style="flex-direction:column;gap:3px;padding:8px 0">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <span style="color:${col};font-weight:800;font-size:12px">${icon} ${e.dir} · $${parseFloat(e.px).toFixed(2)} · ${e.sc}/4</span>
+        <span style="color:${col};font-weight:800;font-size:12px">${icon} ${e.dir} · $${fmtP(e.px)} · ${e.sc}/4</span>
         <span style="color:var(--muted2);font-size:10px;white-space:nowrap">${time}</span>
       </div>
       <div style="color:var(--muted2);font-size:10px">K5:${e.ind.k5} K1:${e.ind.k1} · 15m:${e.ind.trend15} 1H:${e.ind.trend1h} · BTC:${e.ind.btc} · OI:${e.ind.oi}</div>
@@ -1202,6 +1202,13 @@ function analyse(c1m, c5m, c15m, c1h, fundingHist = [], oiHist = [], btc5m = [])
 function fmt(n, dec=2) {
   return parseFloat(n).toLocaleString('en-US', {minimumFractionDigits:dec, maximumFractionDigits:dec});
 }
+function fmtP(n) {
+  const v = parseFloat(n);
+  if (v >= 1)     return v.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+  if (v >= 0.1)   return v.toLocaleString('en-US', {minimumFractionDigits:4, maximumFractionDigits:4});
+  if (v >= 0.01)  return v.toLocaleString('en-US', {minimumFractionDigits:5, maximumFractionDigits:5});
+  return v.toLocaleString('en-US', {minimumFractionDigits:6, maximumFractionDigits:6});
+}
 
 function barHTML(pct, color='cyan', height=6) {
   const cls = {green:'fill-green',red:'fill-red',cyan:'fill-cyan',yellow:'fill-yellow'}[color]||'fill-cyan';
@@ -1273,7 +1280,7 @@ function render(sig, supports, resistances, ticker) {
   document.getElementById('pFunding').innerHTML =
     `<span style="color:${fundingColor}">${fundingRate >= 0 ? '+' : ''}${fundingRate.toFixed(4)}%</span>`;
   document.getElementById('pFundingTime').textContent = `${minToFunding}m`;
-  document.getElementById('pMark').textContent = '$' + fmt(markPrice);
+  document.getElementById('pMark').textContent = '$' + fmtP(markPrice);
   const oiM = openInterest >= 1e9
     ? (openInterest / 1e9).toFixed(2) + 'B'
     : (openInterest / 1e6).toFixed(1) + 'M';
@@ -1289,8 +1296,8 @@ function render(sig, supports, resistances, ticker) {
     sig.redFlags.unshift(`Funding payment in ${minToFunding}m — avoid new entries, market may spike then reverse`);
 
   // Update 24h high/low in session banner
-  document.getElementById('s24hHigh').textContent = '$' + fmt(ticker.highPrice24h);
-  document.getElementById('s24hLow').textContent  = '$' + fmt(ticker.lowPrice24h);
+  document.getElementById('s24hHigh').textContent = '$' + fmtP(ticker.highPrice24h);
+  document.getElementById('s24hLow').textContent  = '$' + fmtP(ticker.lowPrice24h);
 
   // ── CONTEXT STRIP ─────────────────────────────────────────────────────────────
   const _renderBase = SYMBOL.replace(/USDT$|BUSD$|USD$/, '');
@@ -1428,11 +1435,11 @@ function render(sig, supports, resistances, ticker) {
 
   // Header
   document.getElementById('hSymbol').textContent = SYMBOL;
-  document.getElementById('hPrice').innerHTML = `<span class="${up?'green':'red'}">$${fmt(sig.price)}</span>`;
+  document.getElementById('hPrice').innerHTML = `<span class="${up?'green':'red'}">$${fmtP(sig.price)}</span>`;
   document.getElementById('hChange').textContent = (up?'+':'') + chg.toFixed(2) + '%';
   document.getElementById('hChange').className = 'h-badge ' + (up?'up':'down');
   document.getElementById('hMeta').innerHTML =
-    `24h &nbsp;<span class="green">$${fmt(ticker.highPrice24h)}</span> / <span class="red">$${fmt(ticker.lowPrice24h)}</span> &nbsp;·&nbsp; Turnover ${parseFloat(ticker.turnover24h||0).toLocaleString('en-US',{maximumFractionDigits:0})}`;
+    `24h &nbsp;<span class="green">$${fmtP(ticker.highPrice24h)}</span> / <span class="red">$${fmtP(ticker.lowPrice24h)}</span> &nbsp;·&nbsp; Turnover ${parseFloat(ticker.turnover24h||0).toLocaleString('en-US',{maximumFractionDigits:0})}`;
   const t15html = sig.trend15 === 'BULLISH'
     ? '<span class="green">▲ BULL</span>'
     : '<span class="red">▼ BEAR</span>';
@@ -1483,12 +1490,12 @@ function render(sig, supports, resistances, ticker) {
   let lvls = '';
   for (const r of [...allRes].reverse()) {
     const tag = sessionLvls.has(r) ? ' <span class="yellow" style="font-size:9px">SESSION</span>' : '';
-    lvls += `<div class="level-row lr"><span><span class="red bold">▲</span> &nbsp;<span class="level-val">${fmt(r,2)}</span>${tag}</span><span class="level-dist green">+${((r-sig.price)/sig.price*100).toFixed(2)}%</span></div>`;
+    lvls += `<div class="level-row lr"><span><span class="red bold">▲</span> &nbsp;<span class="level-val">${fmtP(r)}</span>${tag}</span><span class="level-dist green">+${((r-sig.price)/sig.price*100).toFixed(2)}%</span></div>`;
   }
-  lvls += `<div class="level-row lnow"><span><span class="cyan bold">◆</span> &nbsp;<span class="level-val cyan">${fmt(sig.price,2)}</span></span><span class="cyan muted" style="font-size:10px">NOW</span></div>`;
+  lvls += `<div class="level-row lnow"><span><span class="cyan bold">◆</span> &nbsp;<span class="level-val cyan">${fmtP(sig.price)}</span></span><span class="cyan muted" style="font-size:10px">NOW</span></div>`;
   for (const s of [...allSup].reverse()) {
     const tag = sessionLvls.has(s) ? ' <span class="yellow" style="font-size:9px">SESSION</span>' : '';
-    lvls += `<div class="level-row ls"><span><span class="green bold">▼</span> &nbsp;<span class="level-val">${fmt(s,2)}</span>${tag}</span><span class="level-dist red">-${((sig.price-s)/sig.price*100).toFixed(2)}%</span></div>`;
+    lvls += `<div class="level-row ls"><span><span class="green bold">▼</span> &nbsp;<span class="level-val">${fmtP(s)}</span>${tag}</span><span class="level-dist red">-${((sig.price-s)/sig.price*100).toFixed(2)}%</span></div>`;
   }
   document.getElementById('levels').innerHTML = lvls;
 
