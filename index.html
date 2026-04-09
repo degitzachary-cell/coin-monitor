@@ -479,9 +479,20 @@ body {
   border-color: rgba(255,96,128,0.5);
   animation: fireglow 1.6s ease-in-out infinite;
 }
+.cluster-box.fire-long {
+  background: rgba(0,255,200,0.12);
+  border-color: rgba(0,255,200,0.5);
+  animation: fireglowLong 1.6s ease-in-out infinite;
+}
+.cluster-box.fire .v { color: var(--red); }
+.cluster-box.fire-long .v { color: var(--green); }
 @keyframes fireglow {
   0%, 100% { box-shadow: 0 0 0 rgba(255,96,128,0); }
   50% { box-shadow: 0 0 18px rgba(255,96,128,0.35); }
+}
+@keyframes fireglowLong {
+  0%, 100% { box-shadow: 0 0 0 rgba(0,255,200,0); }
+  50% { box-shadow: 0 0 18px rgba(0,255,200,0.35); }
 }
 .cluster-box .label {
   font-size: 9px;
@@ -491,7 +502,6 @@ body {
   margin-bottom: 4px;
 }
 .cluster-box .v { font-weight: 700; font-size: 13px; color: var(--text); }
-.cluster-box.fire .v { color: var(--red); }
 .cluster-box .s { color: var(--muted2); font-size: 10px; margin-top: 2px; }
 
 /* ── Order book ────────────────────────────────────────────── */
@@ -734,7 +744,7 @@ body {
 <div class="conviction" id="convPanel">
   <div class="conv-head">
     <div>
-      <div class="conv-title">Short Conviction · Live</div>
+      <div class="conv-title" id="convTitle">Conviction · Live</div>
       <div class="conv-verdict" id="convVerdict">WAIT</div>
     </div>
     <div class="conv-score">
@@ -743,19 +753,19 @@ body {
   </div>
   <div class="conv-checks">
     <div class="conv-check" id="chkStoch">
-      <div class="k">STOCH RSI ROLLOVER <span class="i">—</span></div>
+      <div class="k"><span id="chkStochK">STOCH RSI</span> <span class="i">—</span></div>
       <div class="v" id="chkStochV">—</div>
-      <div class="s" id="chkStochS">Waiting for OB + curl down</div>
+      <div class="s" id="chkStochS">Waiting for OB/OS + curl</div>
     </div>
     <div class="conv-check" id="chkBB">
-      <div class="k">UPPER BB REJECTION <span class="i">—</span></div>
+      <div class="k"><span id="chkBBK">BB TAG</span> <span class="i">—</span></div>
       <div class="v" id="chkBBV">—</div>
-      <div class="s" id="chkBBS">Price must tag upper band</div>
+      <div class="s" id="chkBBS">Price must tag a band</div>
     </div>
     <div class="conv-check" id="chkCluster">
-      <div class="k">SELL CLUSTER <span class="i">—</span></div>
+      <div class="k"><span id="chkClusterK">CLUSTER</span> <span class="i">—</span></div>
       <div class="v" id="chkClusterV">—</div>
-      <div class="s" id="chkClusterS">3+ sells ≥$2.5K in 30s</div>
+      <div class="s" id="chkClusterS">3+ ≥$2.5K one side in 30s</div>
     </div>
   </div>
 </div>
@@ -1104,13 +1114,14 @@ function renderBB(price, bbv) {
   const pill = document.getElementById('bbPill');
   let state = 'NEUTRAL', cls = 'mute';
   const atUpper = pos >= 90 || price >= bbv.hi;
+  const atLower = pos <= 10 || price <= bbv.lo;
   if (atUpper) { state = 'UPPER BAND · REJECTION ZONE'; cls = 'red'; }
   else if (pos >= 75) { state = 'UPPER HALF'; cls = 'yellow'; }
-  else if (pos <= 10) { state = 'LOWER BAND · BOUNCE ZONE'; cls = 'green'; }
+  else if (atLower) { state = 'LOWER BAND · BOUNCE ZONE'; cls = 'green'; }
   else if (pos <= 25) { state = 'LOWER HALF'; cls = 'yellow'; }
   pill.textContent = state;
   pill.className = 'state-pill ' + cls;
-  return { pos, atUpper, width };
+  return { pos, atUpper, atLower, width };
 }
 
 function renderStoch(closes) {
@@ -1127,22 +1138,27 @@ function renderStoch(closes) {
   document.getElementById('stochSub').textContent = 'K: ' + k.toFixed(1) + ' · D: ' + d.toFixed(1);
 
   const pill = document.getElementById('stochPill');
-  // Rollover from OB: was ≥80 recently AND now curling down (K crossed below D, or K falling from >75)
+  // Rollover from OB: was ≥75 recently AND now curling down
   const wasOB = (kPrev != null && kPrev >= 75) || k >= 75;
   const curlingDown = kPrev != null && k < kPrev && (k < d || (dPrev != null && kPrev >= dPrev && k < d));
   const rollover = wasOB && curlingDown;
 
+  // Bounce from OS: was ≤25 recently AND now curling up
+  const wasOS = (kPrev != null && kPrev <= 25) || k <= 25;
+  const curlingUp = kPrev != null && k > kPrev && (k > d || (dPrev != null && kPrev <= dPrev && k > d));
+  const rollup = wasOS && curlingUp;
+
   let state = '—', cls = 'mute';
   if (rollover) { state = 'ROLLOVER FROM OB ◄ SHORT'; cls = 'red'; }
+  else if (rollup) { state = 'BOUNCE FROM OS ► LONG'; cls = 'green'; }
   else if (k >= 80) { state = 'OVERBOUGHT'; cls = 'yellow'; }
-  else if (k <= 20 && k > kPrev) { state = 'OVERSOLD · CURLING UP'; cls = 'green'; }
   else if (k <= 20) { state = 'OVERSOLD'; cls = 'yellow'; }
   else if (k > d) { state = 'RISING'; cls = 'mute'; }
   else { state = 'FALLING'; cls = 'mute'; }
   pill.textContent = state;
   pill.className = 'state-pill ' + cls;
 
-  return { k, d, rollover };
+  return { k, d, rollover, rollup };
 }
 
 function renderMACD(closes) {
@@ -1232,22 +1248,46 @@ function renderFlow(trades) {
 
 function detectCluster(trades) {
   const now = Date.now();
-  const largeSells = trades.filter(t =>
-    t.side === 'Sell' &&
+  const bigRecent = trades.filter(t =>
     t.price * t.size >= LARGE_TRADE_USD &&
     now - t.time < CLUSTER_WINDOW_MS
   );
-  const count = largeSells.length;
-  const totalUSD = largeSells.reduce((a, t) => a + t.price * t.size, 0);
-  const isCluster = count >= CLUSTER_MIN;
+  const sells = bigRecent.filter(t => t.side === 'Sell');
+  const buys  = bigRecent.filter(t => t.side === 'Buy');
+  const sellCount = sells.length;
+  const buyCount  = buys.length;
+  const sellUSD = sells.reduce((a, t) => a + t.price * t.size, 0);
+  const buyUSD  = buys.reduce((a, t) => a + t.price * t.size, 0);
+  const sellCluster = sellCount >= CLUSTER_MIN;
+  const buyCluster  = buyCount  >= CLUSTER_MIN;
 
   const box = document.getElementById('clusterBox');
-  box.classList.toggle('fire', isCluster);
-  document.getElementById('clusterV').textContent =
-    isCluster ? `${count} SELLS · ${fmtUSD(totalUSD)}` : `${count} sells · ${fmtUSD(totalUSD)}`;
-  document.getElementById('clusterS').textContent =
-    isCluster ? '🔥 CLUSTER ACTIVE — directional confirmation' : 'Waiting for 3+ ≥ $2.5K in 30s';
-  return { isCluster, count, totalUSD };
+  box.classList.remove('fire', 'fire-long');
+  let label, valText, subText;
+  if (sellCluster && (!buyCluster || sellCount >= buyCount)) {
+    box.classList.add('fire');
+    label = 'Sell Cluster (30s window)';
+    valText = `${sellCount} SELLS · ${fmtUSD(sellUSD)}`;
+    subText = '🔥 SELL CLUSTER — bearish confirmation';
+  } else if (buyCluster) {
+    box.classList.add('fire-long');
+    label = 'Buy Cluster (30s window)';
+    valText = `${buyCount} BUYS · ${fmtUSD(buyUSD)}`;
+    subText = '🔥 BUY CLUSTER — bullish confirmation';
+  } else {
+    label = 'Cluster Watch (30s window)';
+    valText = `${sellCount} sells · ${buyCount} buys`;
+    subText = 'Waiting for 3+ ≥ $2.5K one side';
+  }
+  document.querySelector('#clusterBox .label').textContent = label;
+  document.getElementById('clusterV').textContent = valText;
+  document.getElementById('clusterS').textContent = subText;
+
+  return {
+    sellCluster, buyCluster,
+    sellCount, buyCount,
+    sellUSD, buyUSD,
+  };
 }
 
 function renderTrades(trades) {
@@ -1277,43 +1317,88 @@ function renderTrades(trades) {
 }
 
 function renderConviction(bbR, stR, cl) {
-  // Three checks
-  const c1 = stR && stR.rollover;                        // Stoch RSI rollover
-  const c2 = bbR && bbR.atUpper;                         // Upper BB rejection zone
-  const c3 = cl && cl.isCluster;                         // Sell cluster
+  // Short-side checks
+  const s1 = stR && stR.rollover;         // Stoch rollover from OB
+  const s2 = bbR && bbR.atUpper;          // Upper BB tag
+  const s3 = cl && cl.sellCluster;        // Sell cluster
+  const shortCount = [s1, s2, s3].filter(Boolean).length;
 
-  function mark(id, on, bull=false) {
+  // Long-side checks
+  const l1 = stR && stR.rollup;           // Stoch bounce from OS
+  const l2 = bbR && bbR.atLower;          // Lower BB tag
+  const l3 = cl && cl.buyCluster;         // Buy cluster
+  const longCount = [l1, l2, l3].filter(Boolean).length;
+
+  // Auto-pick direction: whichever has more hits wins; on ties prefer short
+  // (matches the user's edge). 0 hits on both → neutral.
+  const isLong = longCount > shortCount;
+  const count = isLong ? longCount : shortCount;
+  const c1 = isLong ? l1 : s1;
+  const c2 = isLong ? l2 : s2;
+  const c3 = isLong ? l3 : s3;
+
+  // Labels flip with direction
+  const labels = isLong
+    ? { title: 'Long Conviction · Live', stoch: 'STOCH BOUNCE', bb: 'LOWER BB BOUNCE', cluster: 'BUY CLUSTER' }
+    : { title: 'Short Conviction · Live', stoch: 'STOCH ROLLOVER', bb: 'UPPER BB REJECTION', cluster: 'SELL CLUSTER' };
+  document.getElementById('convTitle').textContent = labels.title;
+  document.getElementById('chkStochK').textContent = labels.stoch;
+  document.getElementById('chkBBK').textContent = labels.bb;
+  document.getElementById('chkClusterK').textContent = labels.cluster;
+
+  function mark(id, on, bull) {
     const el = document.getElementById(id);
     el.classList.toggle('on', on);
-    el.classList.toggle('bull', bull);
+    el.classList.toggle('bull', bull && on);
     el.querySelector('.i').textContent = on ? '●' : '○';
   }
-  mark('chkStoch', c1);
-  mark('chkBB', c2);
-  mark('chkCluster', c3);
+  mark('chkStoch', c1, isLong);
+  mark('chkBB', c2, isLong);
+  mark('chkCluster', c3, isLong);
 
+  // Check value text + sub text per direction
   document.getElementById('chkStochV').textContent = stR
     ? `K ${stR.k.toFixed(1)} / D ${stR.d.toFixed(1)}`
     : '—';
-  document.getElementById('chkStochS').textContent = c1
-    ? '🔥 Rolled over from OB'
-    : (stR && stR.k >= 80 ? 'Overbought — watch for curl' : 'Waiting for OB + curl down');
+  if (isLong) {
+    document.getElementById('chkStochS').textContent = c1
+      ? '🔥 Bounced from OS'
+      : (stR && stR.k <= 20 ? 'Oversold — watch for curl up' : 'Waiting for OS + curl up');
+  } else {
+    document.getElementById('chkStochS').textContent = c1
+      ? '🔥 Rolled over from OB'
+      : (stR && stR.k >= 80 ? 'Overbought — watch for curl down' : 'Waiting for OB + curl down');
+  }
 
   document.getElementById('chkBBV').textContent = bbR
     ? `Pos ${bbR.pos.toFixed(0)}%`
     : '—';
-  document.getElementById('chkBBS').textContent = c2
-    ? '🔥 At upper band — rejection zone'
-    : (bbR && bbR.pos >= 75 ? 'Near upper band' : 'Price must tag upper band');
+  if (isLong) {
+    document.getElementById('chkBBS').textContent = c2
+      ? '🔥 At lower band — bounce zone'
+      : (bbR && bbR.pos <= 25 ? 'Near lower band' : 'Price must tag lower band');
+  } else {
+    document.getElementById('chkBBS').textContent = c2
+      ? '🔥 At upper band — rejection zone'
+      : (bbR && bbR.pos >= 75 ? 'Near upper band' : 'Price must tag upper band');
+  }
 
-  document.getElementById('chkClusterV').textContent = cl
-    ? `${cl.count} sells · ${fmtUSD(cl.totalUSD)}`
-    : '—';
-  document.getElementById('chkClusterS').textContent = c3
-    ? '🔥 Sell cluster active'
-    : '3+ sells ≥$2.5K in 30s';
+  if (cl) {
+    if (isLong) {
+      document.getElementById('chkClusterV').textContent =
+        `${cl.buyCount} buys · ${fmtUSD(cl.buyUSD)}`;
+      document.getElementById('chkClusterS').textContent = c3
+        ? '🔥 Buy cluster active'
+        : '3+ buys ≥$2.5K in 30s';
+    } else {
+      document.getElementById('chkClusterV').textContent =
+        `${cl.sellCount} sells · ${fmtUSD(cl.sellUSD)}`;
+      document.getElementById('chkClusterS').textContent = c3
+        ? '🔥 Sell cluster active'
+        : '3+ sells ≥$2.5K in 30s';
+    }
+  }
 
-  const count = [c1, c2, c3].filter(Boolean).length;
   document.getElementById('convCount').textContent = count;
 
   const panel = document.getElementById('convPanel');
@@ -1321,17 +1406,17 @@ function renderConviction(bbR, stR, cl) {
   panel.classList.remove('short', 'long');
   verdict.classList.remove('short', 'long');
 
-  if (count === 3) {
-    verdict.textContent = 'SHORT — GO';
-    verdict.classList.add('short');
-    panel.classList.add('short');
-  } else if (count === 2) {
-    verdict.textContent = 'SHORT — SETUP';
-    verdict.classList.add('short');
+  if (count === 0) {
+    verdict.textContent = 'WAIT';
   } else if (count === 1) {
     verdict.textContent = 'WATCH';
+  } else if (count === 2) {
+    verdict.textContent = isLong ? 'LONG — SETUP' : 'SHORT — SETUP';
+    verdict.classList.add(isLong ? 'long' : 'short');
   } else {
-    verdict.textContent = 'WAIT';
+    verdict.textContent = isLong ? 'LONG — GO' : 'SHORT — GO';
+    verdict.classList.add(isLong ? 'long' : 'short');
+    panel.classList.add(isLong ? 'long' : 'short');
   }
 }
 
