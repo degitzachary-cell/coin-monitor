@@ -720,7 +720,7 @@ body {
     <span class="c" id="solChange">—</span>
   </div>
   <span id="errorMsg"></span>
-  <span class="live-pill"><span class="live-dot"></span>LIVE · <span id="countdown">5</span>s</span>
+  <span class="live-pill"><span class="live-dot"></span>LIVE · <span id="countdown">3</span>s</span>
 </div>
 
 <div class="header">
@@ -903,7 +903,9 @@ body {
 <script>
 // ── CONFIG ────────────────────────────────────────────────────
 let SYMBOL = localStorage.getItem('fm_symbol') || 'FARTCOINUSDT';
-const REFRESH_MS = 5000;
+const REFRESH_MS = 3000;         // heavy poll (klines, orderbook, SOL ticker)
+const LIVE_TICK_MS = 200;        // lightweight render tick off WS state
+const LIVE_TRADE_BUFFER_MS = 120000; // keep 2min of WS trades in memory
 const LARGE_TRADE_USD = 2500;    // min notional shown
 const HUGE_TRADE_USD  = 10000;   // gold highlight
 const CLUSTER_WINDOW_MS = 30000; // 30s
@@ -1429,6 +1431,9 @@ const IMPACT_MOVED_BPS  = 2;       // ≥0.02% = "moved", else absorbed
 let impactEvents = [];    // finalized: {time, usd, price, drop, latMs, moved}
 let impactPending = [];   // in-flight: {time, usd, price, bestDrop, bestLatMs, expireAt}
 let lastMarkPrice = null; // from ticker WS
+let liveTicker = null;    // latest ticker snapshot from WS (lastPrice, price24hPcnt, etc.)
+let liveTrades = [];      // rolling buffer of WS trades: {price,size,side,time}
+let lastBB = null;        // cached BB object from last klines refresh
 let wsMark = null, wsTrade = null;
 let wsMarkRetry = 0, wsTradeRetry = 0;
 
@@ -1450,7 +1455,10 @@ function connectMarkWS() {
     try {
       const m = JSON.parse(ev.data);
       if (m.topic && m.topic.startsWith('tickers.') && m.data) {
-        const p = parseFloat(m.data.lastPrice || m.data.markPrice);
+        // Bybit sends snapshot then deltas — merge into liveTicker
+        if (m.type === 'snapshot' || !liveTicker) liveTicker = { ...m.data };
+        else liveTicker = { ...liveTicker, ...m.data };
+        const p = parseFloat(m.data.lastPrice || liveTicker.lastPrice);
         if (!isNaN(p)) {
           lastMarkPrice = p;
           updatePendingImpact(p, Date.now());
@@ -1478,12 +1486,16 @@ function connectTradeWS() {
     try {
       const m = JSON.parse(ev.data);
       if (m.topic && m.topic.startsWith('publicTrade.') && Array.isArray(m.data)) {
+        const now = Date.now();
         for (const t of m.data) {
           const price = parseFloat(t.p);
           const size  = parseFloat(t.v);
           const side  = t.S;  // "Buy" / "Sell"
           const time  = parseInt(t.T);
           const usd   = price * size;
+          // Feed the live rolling buffer (for flow/cluster/trades list)
+          liveTrades.push({ price, size, side, time });
+          // Queue impact measurement for qualifying sells
           if (side === 'Sell' && usd >= IMPACT_MIN_USD) {
             impactPending.push({
               time, usd, price,
@@ -1492,6 +1504,9 @@ function connectTradeWS() {
             });
           }
         }
+        // Trim old trades
+        const cutoff = now - LIVE_TRADE_BUFFER_MS;
+        while (liveTrades.length && liveTrades[0].time < cutoff) liveTrades.shift();
       }
     } catch(_) {}
   };
@@ -1603,29 +1618,98 @@ function resetImpactWS() {
 // Sweep expired pending events every 500ms
 setInterval(sweepImpact, 500);
 
+// ── LIVE TICK (WS-driven, ~5Hz) ─────────────────────────────
+// Updates anything that can be driven purely from WS state without
+// needing a fresh HTTP fetch. Runs every LIVE_TICK_MS.
+function liveTick() {
+  // 1. Header price + change from WS ticker
+  if (liveTicker && liveTicker.lastPrice) {
+    const price = parseFloat(liveTicker.lastPrice);
+    const pct = parseFloat(liveTicker.price24hPcnt) * 100;
+    const high = parseFloat(liveTicker.highPrice24h);
+    const low  = parseFloat(liveTicker.lowPrice24h);
+    if (!isNaN(price)) {
+      document.getElementById('hPrice').textContent = '$' + fmtPrice(price);
+      // BB marker / price field — use cached BB bands, slide marker in real time
+      if (lastBB) {
+        const pos = Math.max(0, Math.min(100, ((price - lastBB.lo) / (lastBB.hi - lastBB.lo)) * 100));
+        document.getElementById('bbMarker').style.left = pos + '%';
+        document.getElementById('bbPrice').textContent = fmtPrice(price);
+      }
+      // 24h range marker
+      if (!isNaN(high) && !isNaN(low) && high > low) {
+        const rp = Math.max(0, Math.min(100, ((price - low) / (high - low)) * 100));
+        document.getElementById('rangeMarker').style.left = rp + '%';
+      }
+    }
+    if (!isNaN(pct)) {
+      const chEl = document.getElementById('hChange');
+      chEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+      chEl.className = 'h-change ' + (pct >= 0 ? 'up' : 'down');
+    }
+  }
+
+  // 2. Trade flow + cluster detection off the live buffer
+  if (liveTrades.length) {
+    renderFlow(liveTrades);
+    const cl = detectCluster(liveTrades);
+    renderTrades(liveTrades);
+    // Re-compute conviction using cached bb/stoch + fresh cluster
+    if (lastBBResult || lastStochResult || cl) {
+      renderConviction(lastBBResult, lastStochResult, cl);
+    }
+  }
+}
+
+// Cached indicator results so liveTick can re-evaluate conviction
+let lastBBResult = null, lastStochResult = null;
+
+setInterval(liveTick, LIVE_TICK_MS);
+
 // ── MAIN LOOP ───────────────────────────────────────────────
 let countdownVal = REFRESH_MS / 1000;
 async function refresh() {
   try {
     document.getElementById('errorMsg').textContent = '';
-    const [ticker, solTicker, klines, ob, trades] = await Promise.all([
-      fetchTicker(SYMBOL),
+    // Header ticker comes from WS now, but still poll SOL + klines + OB.
+    // Trades come from the live WS buffer — no HTTP needed.
+    const [solTicker, klines, ob] = await Promise.all([
       fetchTicker('SOLUSDT'),
       fetchKlines('1', 200),
       fetchOrderbook(50),
-      fetchRecentTrades(1000),
     ]);
-    const price = renderHeader(ticker);
     renderSol(solTicker);
     const closes = klines.map(k => k.close);
-    const bbR = renderBB(price, bb(closes, 20, 2));
+    const bbv = bb(closes, 20, 2);
+    lastBB = bbv;
+    // Use WS live price if available, else last kline close
+    const price = (liveTicker && parseFloat(liveTicker.lastPrice)) || closes[closes.length - 1];
+    // Also drive header range bar from first WS-less load
+    if (!liveTicker) {
+      // Bootstrap header from HTTP ticker once, until WS catches up
+      try {
+        const ticker = await fetchTicker(SYMBOL);
+        renderHeader(ticker);
+      } catch(_) {}
+    }
+    const bbR = renderBB(price, bbv);
     const stR = renderStoch(closes);
     renderMACD(closes);
     renderOB(ob);
-    renderFlow(trades);
-    const cl = detectCluster(trades);
-    renderTrades(trades);
-    renderConviction(bbR, stR, cl);
+    lastBBResult = bbR;
+    lastStochResult = stR;
+    // Flow + trades + cluster are now driven by liveTick off the WS buffer.
+    // Only run them here if WS buffer is empty (cold start).
+    if (liveTrades.length === 0) {
+      const trades = await fetchRecentTrades(1000);
+      renderFlow(trades);
+      const cl = detectCluster(trades);
+      renderTrades(trades);
+      renderConviction(bbR, stR, cl);
+    } else {
+      const cl = detectCluster(liveTrades);
+      renderConviction(bbR, stR, cl);
+    }
   } catch (e) {
     document.getElementById('errorMsg').textContent = 'ERR: ' + (e.message || e);
   }
