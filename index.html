@@ -583,6 +583,102 @@ body {
   font-size: 11px;
 }
 
+/* ── Impact Latency panel ─────────────────────────────────── */
+.impact-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.impact-stat { text-align: left; }
+.impact-stat .label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--muted2);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.impact-stat .value {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 32px;
+  line-height: 1;
+  color: var(--text);
+}
+.impact-stat .value.green { color: var(--green); }
+.impact-stat .value.red { color: var(--red); }
+.impact-stat .sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+  margin-top: 4px;
+}
+.impact-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0 -4px;
+}
+.impact-list::-webkit-scrollbar { width: 6px; }
+.impact-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.impact-row {
+  display: grid;
+  grid-template-columns: 54px 1fr 80px 90px 70px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 4px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.impact-row:last-child { border-bottom: none; }
+.impact-row .side {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 3px;
+  text-align: center;
+  background: var(--glow-red);
+  color: var(--red);
+}
+.impact-row .usd { color: var(--text); font-weight: 700; }
+.impact-row .drop { text-align: right; font-weight: 700; }
+.impact-row .drop.moved { color: var(--red); }
+.impact-row .drop.absorbed { color: var(--muted2); }
+.impact-row .drop.big { color: var(--red); text-shadow: 0 0 8px rgba(255,96,128,0.5); }
+.impact-row .lat { text-align: right; color: var(--cyan); }
+.impact-row .tag {
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-align: right;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.impact-row .tag.moved { color: var(--red); }
+.impact-row .tag.absorbed { color: var(--muted2); }
+.impact-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted2);
+  font-size: 11px;
+}
+.ws-status {
+  display: inline-block;
+  margin-left: 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--muted);
+}
+.ws-status.on { color: var(--green); }
+.ws-status.off { color: var(--red); }
+
 #errorMsg {
   color: var(--red);
   font-size: 11px;
@@ -759,6 +855,33 @@ body {
 </div>
 
 <div class="card" style="margin-bottom:16px">
+  <div class="card-title">
+    <span>Impact Latency <span class="tag">SELLS ≥$2.5K · 10S WINDOW</span></span>
+    <span class="ws-status" id="wsStatus">● WS OFF</span>
+  </div>
+  <div class="impact-hero">
+    <div class="impact-stat">
+      <div class="label">Avg Reaction</div>
+      <div class="value" id="impactLat">—</div>
+      <div class="sub" id="impactLatSub">time to max drop</div>
+    </div>
+    <div class="impact-stat">
+      <div class="label">Avg Drop</div>
+      <div class="value" id="impactDrop">—</div>
+      <div class="sub" id="impactDropSub">per sell event</div>
+    </div>
+    <div class="impact-stat">
+      <div class="label">Absorption</div>
+      <div class="value" id="impactAbs">—</div>
+      <div class="sub" id="impactAbsSub">% no price move</div>
+    </div>
+  </div>
+  <div class="impact-list" id="impactList">
+    <div class="impact-empty">Connecting to WebSocket… waiting for sells ≥ $2.5K</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px">
   <div class="card-title">Recent Large Trades <span class="tag">MIN $2.5K</span></div>
   <div class="trades-list" id="tradesList">
     <div class="trade-empty">Loading…</div>
@@ -788,6 +911,7 @@ function applyConfig() {
     SYMBOL.replace('USDT', ' / USDT') + ' · PERP';
   document.getElementById('tvChart').src =
     `https://www.tradingview.com/widgetembed/?symbol=BYBIT%3A${SYMBOL}.P&interval=1&theme=dark&style=1&locale=en&toolbarbg=1e2030&studies=%5B%22STD%3BBB%22%2C%22STD%3BStochastic_RSI%22%2C%22STD%3BMACD%22%5D&hide_side_toolbar=0`;
+  resetImpactWS();
   refresh();
 }
 
@@ -1211,6 +1335,189 @@ function renderConviction(bbR, stR, cl) {
   }
 }
 
+// ── IMPACT LATENCY (WebSocket) ──────────────────────────────
+const IMPACT_WINDOW_MS  = 10000;   // watch price for 10s after each sell
+const IMPACT_MIN_USD    = 2500;    // qualifying sell size
+const IMPACT_HISTORY    = 50;      // keep last N events
+const IMPACT_MOVED_BPS  = 2;       // ≥0.02% = "moved", else absorbed
+
+let impactEvents = [];    // finalized: {time, usd, price, drop, latMs, moved}
+let impactPending = [];   // in-flight: {time, usd, price, bestDrop, bestLatMs, expireAt}
+let lastMarkPrice = null; // from ticker WS
+let wsMark = null, wsTrade = null;
+let wsMarkRetry = 0, wsTradeRetry = 0;
+
+function wsSetStatus(on) {
+  const el = document.getElementById('wsStatus');
+  el.textContent = on ? '● WS LIVE' : '● WS OFF';
+  el.className = 'ws-status ' + (on ? 'on' : 'off');
+}
+
+function connectMarkWS() {
+  try { wsMark && wsMark.close(); } catch(_) {}
+  wsMark = new WebSocket('wss://stream.bybit.com/v5/public/linear');
+  wsMark.onopen = () => {
+    wsMarkRetry = 0;
+    wsMark.send(JSON.stringify({ op: 'subscribe', args: [`tickers.${SYMBOL}`] }));
+    maybeMarkLive();
+  };
+  wsMark.onmessage = (ev) => {
+    try {
+      const m = JSON.parse(ev.data);
+      if (m.topic && m.topic.startsWith('tickers.') && m.data) {
+        const p = parseFloat(m.data.lastPrice || m.data.markPrice);
+        if (!isNaN(p)) {
+          lastMarkPrice = p;
+          updatePendingImpact(p, Date.now());
+        }
+      }
+    } catch(_) {}
+  };
+  wsMark.onclose = () => {
+    wsSetStatus(false);
+    wsMarkRetry++;
+    setTimeout(connectMarkWS, Math.min(15000, 1000 * wsMarkRetry));
+  };
+  wsMark.onerror = () => { try { wsMark.close(); } catch(_) {} };
+}
+
+function connectTradeWS() {
+  try { wsTrade && wsTrade.close(); } catch(_) {}
+  wsTrade = new WebSocket('wss://stream.bybit.com/v5/public/linear');
+  wsTrade.onopen = () => {
+    wsTradeRetry = 0;
+    wsTrade.send(JSON.stringify({ op: 'subscribe', args: [`publicTrade.${SYMBOL}`] }));
+    maybeMarkLive();
+  };
+  wsTrade.onmessage = (ev) => {
+    try {
+      const m = JSON.parse(ev.data);
+      if (m.topic && m.topic.startsWith('publicTrade.') && Array.isArray(m.data)) {
+        for (const t of m.data) {
+          const price = parseFloat(t.p);
+          const size  = parseFloat(t.v);
+          const side  = t.S;  // "Buy" / "Sell"
+          const time  = parseInt(t.T);
+          const usd   = price * size;
+          if (side === 'Sell' && usd >= IMPACT_MIN_USD) {
+            impactPending.push({
+              time, usd, price,
+              bestDrop: 0, bestLatMs: 0,
+              expireAt: time + IMPACT_WINDOW_MS,
+            });
+          }
+        }
+      }
+    } catch(_) {}
+  };
+  wsTrade.onclose = () => {
+    wsSetStatus(false);
+    wsTradeRetry++;
+    setTimeout(connectTradeWS, Math.min(15000, 1000 * wsTradeRetry));
+  };
+  wsTrade.onerror = () => { try { wsTrade.close(); } catch(_) {} };
+}
+
+function maybeMarkLive() {
+  if (wsMark && wsMark.readyState === 1 && wsTrade && wsTrade.readyState === 1) {
+    wsSetStatus(true);
+  }
+}
+
+function updatePendingImpact(price, now) {
+  for (const ev of impactPending) {
+    if (now > ev.expireAt) continue;
+    const drop = ((ev.price - price) / ev.price) * 10000; // bps
+    if (drop > ev.bestDrop) {
+      ev.bestDrop = drop;
+      ev.bestLatMs = now - ev.time;
+    }
+  }
+}
+
+function sweepImpact() {
+  const now = Date.now();
+  const stillPending = [];
+  for (const ev of impactPending) {
+    if (now > ev.expireAt) {
+      const moved = ev.bestDrop >= IMPACT_MOVED_BPS;
+      impactEvents.unshift({
+        time: ev.time,
+        usd:  ev.usd,
+        price: ev.price,
+        drop: ev.bestDrop,     // in bps
+        latMs: ev.bestLatMs,
+        moved,
+      });
+      if (impactEvents.length > IMPACT_HISTORY) impactEvents.length = IMPACT_HISTORY;
+    } else {
+      stillPending.push(ev);
+    }
+  }
+  impactPending = stillPending;
+  renderImpact();
+}
+
+function renderImpact() {
+  const moved = impactEvents.filter(e => e.moved);
+  const avgLat = moved.length
+    ? moved.reduce((a, e) => a + e.latMs, 0) / moved.length
+    : null;
+  const avgDrop = moved.length
+    ? moved.reduce((a, e) => a + e.drop, 0) / moved.length
+    : null;
+  const absPct = impactEvents.length
+    ? (impactEvents.filter(e => !e.moved).length / impactEvents.length) * 100
+    : null;
+
+  document.getElementById('impactLat').textContent =
+    avgLat != null ? (avgLat / 1000).toFixed(2) + 's' : '—';
+  document.getElementById('impactDrop').textContent =
+    avgDrop != null ? '-' + (avgDrop / 100).toFixed(3) + '%' : '—';
+  document.getElementById('impactAbs').textContent =
+    absPct != null ? absPct.toFixed(0) + '%' : '—';
+
+  const dropEl = document.getElementById('impactDrop');
+  dropEl.className = 'value ' + (avgDrop != null && avgDrop >= IMPACT_MOVED_BPS ? 'red' : '');
+  const absEl = document.getElementById('impactAbs');
+  absEl.className = 'value ' + (absPct != null && absPct >= 50 ? 'green' : '');
+
+  document.getElementById('impactLatSub').textContent =
+    `${moved.length} moved / ${impactEvents.length} total`;
+
+  const listEl = document.getElementById('impactList');
+  if (impactEvents.length === 0) {
+    listEl.innerHTML = `<div class="impact-empty">${wsMark && wsMark.readyState === 1 ? 'Waiting for sells ≥ $2.5K' : 'Connecting to WebSocket…'}</div>`;
+    return;
+  }
+  listEl.innerHTML = impactEvents.slice(0, 25).map(e => {
+    const dropPct = (e.drop / 100).toFixed(3);
+    const dropCls = e.moved ? (e.drop >= 10 ? 'big' : 'moved') : 'absorbed';
+    const tag = e.moved ? (e.latMs < 1000 ? 'FAST' : 'MOVED') : 'ABSORBED';
+    const tagCls = e.moved ? 'moved' : 'absorbed';
+    return `<div class="impact-row">
+      <span class="side">SELL</span>
+      <span class="usd">${fmtUSD(e.usd)}</span>
+      <span class="drop ${dropCls}">-${dropPct}%</span>
+      <span class="lat">${(e.latMs / 1000).toFixed(2)}s</span>
+      <span class="tag ${tagCls}">${tag}</span>
+    </div>`;
+  }).join('');
+}
+
+function resetImpactWS() {
+  impactEvents = [];
+  impactPending = [];
+  try { wsMark && wsMark.close(); } catch(_) {}
+  try { wsTrade && wsTrade.close(); } catch(_) {}
+  connectMarkWS();
+  connectTradeWS();
+  renderImpact();
+}
+
+// Sweep expired pending events every 500ms
+setInterval(sweepImpact, 500);
+
 // ── MAIN LOOP ───────────────────────────────────────────────
 let countdownVal = REFRESH_MS / 1000;
 async function refresh() {
@@ -1248,6 +1555,8 @@ setInterval(refresh, REFRESH_MS);
 
 document.getElementById('hLabel').textContent =
   SYMBOL.replace('USDT', ' / USDT') + ' · PERP';
+connectMarkWS();
+connectTradeWS();
 refresh();
 </script>
 </body>
