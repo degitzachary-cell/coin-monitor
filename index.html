@@ -594,6 +594,62 @@ body {
 }
 
 /* ── Impact Latency panel ─────────────────────────────────── */
+/* ── DEX FLOW ─────────────────────────────── */
+.dex-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.dex-stat .label { font: 9px/1 var(--font-mono); letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+.dex-stat .value { font: 22px/1.2 var(--font-mono); color: var(--text); margin: 6px 0 2px; }
+.dex-stat .sub   { font: 10px/1 var(--font-mono); color: var(--muted); }
+.dex-pressure-wrap { padding: 14px 0; }
+.dex-pressure-label {
+  font: 10px/1 var(--font-mono);
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  text-align: center;
+}
+.dex-pressure-label.sell-heavy { color: var(--red); }
+.dex-pressure-label.buy-heavy  { color: var(--green); }
+.dex-pressure-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  gap: 2px;
+}
+.dex-bar-buy  { background: var(--green); border-radius: 4px; transition: flex 0.3s; }
+.dex-bar-sell { background: var(--red); border-radius: 4px; transition: flex 0.3s; }
+.dex-pressure-tags {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font: 10px/1 var(--font-mono);
+}
+.dex-pressure-tags .buy  { color: var(--green); }
+.dex-pressure-tags .sell { color: var(--red); }
+.dex-pressure-tags #dexSpread { color: var(--muted); }
+.dex-pairs {
+  font: 10px/1.6 var(--font-mono);
+  color: var(--muted);
+  padding: 10px 0 4px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+.dex-pair-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+}
+.dex-pair-row .dex-name { color: var(--cyan); }
+.dex-pair-row .dex-vol  { color: var(--text2); }
+.dex-pair-row .dex-ratio { }
+.dex-pair-row .dex-ratio.sell-heavy { color: var(--red); }
+.dex-pair-row .dex-ratio.buy-heavy  { color: var(--green); }
+
 .impact-hero {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -765,7 +821,7 @@ body {
       <div class="conv-verdict" id="convVerdict">WAIT</div>
     </div>
     <div class="conv-score">
-      SCORE <b><span id="convCount">0</span>/3</b>
+      SCORE <b><span id="convCount">0</span>/4</b>
     </div>
   </div>
   <div class="conv-checks">
@@ -783,6 +839,11 @@ body {
       <div class="k"><span id="chkClusterK">CLUSTER</span> <span class="i">—</span></div>
       <div class="v" id="chkClusterV">—</div>
       <div class="s" id="chkClusterS">3+ ≥$2.5K one side in 30s</div>
+    </div>
+    <div class="conv-check" id="chkDex">
+      <div class="k"><span id="chkDexK">DEX PRESSURE</span> <span class="i">—</span></div>
+      <div class="v" id="chkDexV">—</div>
+      <div class="s" id="chkDexS">On-chain sell/buy pressure</div>
     </div>
   </div>
 </div>
@@ -882,6 +943,45 @@ body {
 </div>
 
 <div class="card" style="margin-bottom:16px">
+  <div class="card-title">DEX Flow <span class="tag">ON-CHAIN · SOLANA · 5M WINDOW</span></div>
+  <div class="dex-hero">
+    <div class="dex-stat">
+      <div class="label">DEX Price</div>
+      <div class="value" id="dexPrice">—</div>
+      <div class="sub" id="dexPriceSub">on-chain spot</div>
+    </div>
+    <div class="dex-stat">
+      <div class="label">5m Sells</div>
+      <div class="value" id="dexSells">—</div>
+      <div class="sub" id="dexSellsSub">txn count</div>
+    </div>
+    <div class="dex-stat">
+      <div class="label">5m Buys</div>
+      <div class="value" id="dexBuys">—</div>
+      <div class="sub" id="dexBuysSub">txn count</div>
+    </div>
+    <div class="dex-stat">
+      <div class="label">5m Volume</div>
+      <div class="value" id="dexVol">—</div>
+      <div class="sub" id="dexVolSub">USD</div>
+    </div>
+  </div>
+  <div class="dex-pressure-wrap">
+    <div class="dex-pressure-label" id="dexPressureLabel">DEX PRESSURE</div>
+    <div class="dex-pressure-bar">
+      <div class="dex-bar-buy" id="dexBarBuy" style="flex:1"></div>
+      <div class="dex-bar-sell" id="dexBarSell" style="flex:1"></div>
+    </div>
+    <div class="dex-pressure-tags">
+      <span class="buy" id="dexBuyPct">—</span>
+      <span id="dexSpread">—</span>
+      <span class="sell" id="dexSellPct">—</span>
+    </div>
+  </div>
+  <div class="dex-pairs" id="dexPairs">Loading DEX pairs…</div>
+</div>
+
+<div class="card" style="margin-bottom:16px">
   <div class="card-title">
     <span>Impact Latency <span class="tag">BUY + SELL ≥$2.5K · 10S WINDOW</span></span>
     <span style="display:flex;gap:10px;align-items:center">
@@ -932,6 +1032,12 @@ const CLUSTER_WINDOW_MS = 30000; // 30s
 const CLUSTER_MIN = 3;           // N sells to count as cluster
 const FLOW_WINDOW_MS = 60000;    // 60s rolling flow
 const TRADE_GROUP_MS = 500;      // group fills within this window into one "trade"
+
+// ── DEX CONFIG ─────────────────────────────────────────────
+const FARTCOIN_TOKEN = '9BB6NFEcjBCtnNLFko2FqVQBq8HHM13kCyYcdQbgpump';
+const DEX_POLL_MS = 5000;        // poll DexScreener every 5s (rate limit: 60/min)
+const DEX_SELL_PRESSURE_THRESH = 60; // % sell txns to flag as heavy sell pressure
+let lastDexData = null;          // cached DEX response
 
 // Aggregate raw fills (liveTrades) into grouped trades.
 // Consecutive fills on the same side within TRADE_GROUP_MS are merged.
@@ -1370,35 +1476,38 @@ function renderTrades(trades) {
   }).join('');
 }
 
-function renderConviction(bbR, stR, cl) {
+function renderConviction(bbR, stR, cl, dex) {
   // Short-side checks
   const s1 = stR && stR.rollover;         // Stoch rollover from OB
   const s2 = bbR && bbR.atUpper;          // Upper BB tag
-  const s3 = cl && cl.sellCluster;        // Sell cluster
-  const shortCount = [s1, s2, s3].filter(Boolean).length;
+  const s3 = cl && cl.sellCluster;        // Sell cluster (Bybit perp)
+  const s4 = dex && dex.heavySell;        // DEX on-chain sell pressure
+  const shortCount = [s1, s2, s3, s4].filter(Boolean).length;
 
   // Long-side checks
   const l1 = stR && stR.rollup;           // Stoch bounce from OS
   const l2 = bbR && bbR.atLower;          // Lower BB tag
-  const l3 = cl && cl.buyCluster;         // Buy cluster
-  const longCount = [l1, l2, l3].filter(Boolean).length;
+  const l3 = cl && cl.buyCluster;         // Buy cluster (Bybit perp)
+  const l4 = dex && dex.heavyBuy;         // DEX on-chain buy pressure
+  const longCount = [l1, l2, l3, l4].filter(Boolean).length;
 
   // Auto-pick direction: whichever has more hits wins; on ties prefer short
-  // (matches the user's edge). 0 hits on both → neutral.
   const isLong = longCount > shortCount;
   const count = isLong ? longCount : shortCount;
   const c1 = isLong ? l1 : s1;
   const c2 = isLong ? l2 : s2;
   const c3 = isLong ? l3 : s3;
+  const c4 = isLong ? l4 : s4;
 
   // Labels flip with direction
   const labels = isLong
-    ? { title: 'Long Conviction · Live', stoch: 'STOCH BOUNCE', bb: 'LOWER BB BOUNCE', cluster: 'BUY CLUSTER' }
-    : { title: 'Short Conviction · Live', stoch: 'STOCH ROLLOVER', bb: 'UPPER BB REJECTION', cluster: 'SELL CLUSTER' };
+    ? { title: 'Long Conviction · Live', stoch: 'STOCH BOUNCE', bb: 'LOWER BB BOUNCE', cluster: 'BUY CLUSTER', dex: 'DEX BUY PRESSURE' }
+    : { title: 'Short Conviction · Live', stoch: 'STOCH ROLLOVER', bb: 'UPPER BB REJECTION', cluster: 'SELL CLUSTER', dex: 'DEX SELL PRESSURE' };
   document.getElementById('convTitle').textContent = labels.title;
   document.getElementById('chkStochK').textContent = labels.stoch;
   document.getElementById('chkBBK').textContent = labels.bb;
   document.getElementById('chkClusterK').textContent = labels.cluster;
+  document.getElementById('chkDexK').textContent = labels.dex;
 
   function mark(id, on, bull) {
     const el = document.getElementById(id);
@@ -1409,6 +1518,7 @@ function renderConviction(bbR, stR, cl) {
   mark('chkStoch', c1, isLong);
   mark('chkBB', c2, isLong);
   mark('chkCluster', c3, isLong);
+  mark('chkDex', c4, isLong);
 
   // Check value text + sub text per direction
   document.getElementById('chkStochV').textContent = stR
@@ -1453,6 +1563,23 @@ function renderConviction(bbR, stR, cl) {
     }
   }
 
+  // DEX pressure check
+  if (dex) {
+    const sPct = dex.sellPct?.toFixed(0) || '—';
+    const bPct = dex.buyPct?.toFixed(0) || '—';
+    document.getElementById('chkDexV').textContent =
+      `${dex.totalSells5m || 0}S / ${dex.totalBuys5m || 0}B (5m)`;
+    if (isLong) {
+      document.getElementById('chkDexS').textContent = c4
+        ? `🔥 ${bPct}% buys on-chain — bullish`
+        : `${bPct}% buys — need ≥${DEX_SELL_PRESSURE_THRESH}%`;
+    } else {
+      document.getElementById('chkDexS').textContent = c4
+        ? `🔥 ${sPct}% sells on-chain — bearish`
+        : `${sPct}% sells — need ≥${DEX_SELL_PRESSURE_THRESH}%`;
+    }
+  }
+
   document.getElementById('convCount').textContent = count;
 
   const panel = document.getElementById('convPanel');
@@ -1465,6 +1592,9 @@ function renderConviction(bbR, stR, cl) {
   } else if (count === 1) {
     verdict.textContent = 'WATCH';
   } else if (count === 2) {
+    verdict.textContent = isLong ? 'LONG — SETUP' : 'SHORT — SETUP';
+    verdict.classList.add(isLong ? 'long' : 'short');
+  } else if (count === 3) {
     verdict.textContent = isLong ? 'LONG — SETUP' : 'SHORT — SETUP';
     verdict.classList.add(isLong ? 'long' : 'short');
   } else {
@@ -1849,7 +1979,7 @@ function liveTick() {
     renderTrades(liveTrades);
     // Re-compute conviction using cached bb/stoch + fresh cluster
     if (lastBBResult || lastStochResult || cl) {
-      renderConviction(lastBBResult, lastStochResult, cl);
+      renderConviction(lastBBResult, lastStochResult, cl, lastDexResult);
     }
   }
 }
@@ -1861,6 +1991,126 @@ setInterval(liveTick, LIVE_TICK_MS);
 
 // ── MAIN LOOP ───────────────────────────────────────────────
 let countdownVal = REFRESH_MS / 1000;
+// ── DEX FLOW (DexScreener) ─────────────────────────────────
+async function fetchDexData() {
+  try {
+    const resp = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${FARTCOIN_TOKEN}`);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (!data.pairs || !data.pairs.length) return null;
+    // Sort by 24h volume descending, take top Solana pairs
+    const pairs = data.pairs
+      .filter(p => p.chainId === 'solana')
+      .sort((a, b) => (b.volume?.h24 || 0) - (a.volume?.h24 || 0));
+    return pairs;
+  } catch(_) { return null; }
+}
+
+function renderDex(pairs) {
+  if (!pairs || !pairs.length) return null;
+  lastDexData = pairs;
+
+  // Aggregate 5m stats across all pairs
+  let totalBuys5m = 0, totalSells5m = 0, totalVol5m = 0;
+  for (const p of pairs) {
+    totalBuys5m  += (p.txns?.m5?.buys || 0);
+    totalSells5m += (p.txns?.m5?.sells || 0);
+    totalVol5m   += (p.volume?.m5 || 0);
+  }
+  const totalTxns = totalBuys5m + totalSells5m;
+  const sellPct = totalTxns > 0 ? (totalSells5m / totalTxns) * 100 : 50;
+  const buyPct = 100 - sellPct;
+
+  // Top pair price as DEX spot price
+  const topPair = pairs[0];
+  const dexPrice = parseFloat(topPair.priceUsd || 0);
+  const cexPrice = lastMarkPrice || 0;
+  const spread = cexPrice > 0 && dexPrice > 0
+    ? ((cexPrice - dexPrice) / dexPrice * 100).toFixed(3) + '%'
+    : '—';
+
+  // Render hero stats
+  document.getElementById('dexPrice').textContent = dexPrice > 0 ? '$' + dexPrice.toFixed(4) : '—';
+  const priceChange = parseFloat(topPair.priceChange?.h1 || 0);
+  document.getElementById('dexPriceSub').textContent =
+    'h1: ' + (priceChange >= 0 ? '+' : '') + priceChange.toFixed(2) + '%';
+  document.getElementById('dexPriceSub').style.color =
+    priceChange >= 0 ? 'var(--green)' : 'var(--red)';
+
+  document.getElementById('dexSells').textContent = totalSells5m;
+  document.getElementById('dexSellsSub').textContent = sellPct.toFixed(0) + '% of txns';
+  document.getElementById('dexSellsSub').style.color = sellPct > 55 ? 'var(--red)' : 'var(--muted)';
+
+  document.getElementById('dexBuys').textContent = totalBuys5m;
+  document.getElementById('dexBuysSub').textContent = buyPct.toFixed(0) + '% of txns';
+  document.getElementById('dexBuysSub').style.color = buyPct > 55 ? 'var(--green)' : 'var(--muted)';
+
+  document.getElementById('dexVol').textContent = totalVol5m >= 1000
+    ? '$' + (totalVol5m / 1000).toFixed(1) + 'K'
+    : '$' + totalVol5m.toFixed(0);
+  document.getElementById('dexVolSub').textContent = 'across ' + pairs.length + ' pairs';
+
+  // Pressure bar
+  document.getElementById('dexBarBuy').style.flex = buyPct.toFixed(2);
+  document.getElementById('dexBarSell').style.flex = sellPct.toFixed(2);
+  document.getElementById('dexBuyPct').textContent = buyPct.toFixed(0) + '% BUY';
+  document.getElementById('dexSellPct').textContent = sellPct.toFixed(0) + '% SELL';
+  document.getElementById('dexSpread').textContent = 'CEX-DEX: ' + spread;
+
+  const pressureLabel = document.getElementById('dexPressureLabel');
+  pressureLabel.classList.remove('sell-heavy', 'buy-heavy');
+  if (sellPct >= DEX_SELL_PRESSURE_THRESH) {
+    pressureLabel.textContent = '🔴 SELL PRESSURE ON-CHAIN';
+    pressureLabel.classList.add('sell-heavy');
+  } else if (buyPct >= DEX_SELL_PRESSURE_THRESH) {
+    pressureLabel.textContent = '🟢 BUY PRESSURE ON-CHAIN';
+    pressureLabel.classList.add('buy-heavy');
+  } else {
+    pressureLabel.textContent = 'DEX PRESSURE — NEUTRAL';
+  }
+
+  // Per-pair breakdown (top 5)
+  const pairsEl = document.getElementById('dexPairs');
+  const topN = pairs.slice(0, 5);
+  pairsEl.innerHTML = topN.map(p => {
+    const buys5 = p.txns?.m5?.buys || 0;
+    const sells5 = p.txns?.m5?.sells || 0;
+    const t5 = buys5 + sells5;
+    const sPct = t5 > 0 ? (sells5 / t5 * 100) : 50;
+    const vol24 = p.volume?.h24 || 0;
+    const volStr = vol24 >= 1e6 ? '$' + (vol24/1e6).toFixed(1) + 'M'
+      : vol24 >= 1e3 ? '$' + (vol24/1e3).toFixed(0) + 'K'
+      : '$' + vol24.toFixed(0);
+    const ratioClass = sPct > 55 ? 'sell-heavy' : (sPct < 45 ? 'buy-heavy' : '');
+    const dexName = (p.dexId || '').toUpperCase().slice(0, 10);
+    return `<div class="dex-pair-row">
+      <span class="dex-name">${dexName}</span>
+      <span class="dex-vol">${volStr}/24h</span>
+      <span class="dex-ratio ${ratioClass}">${sells5}S/${buys5}B (5m)</span>
+    </div>`;
+  }).join('');
+
+  // Return sell pressure flag for conviction
+  const heavySell = sellPct >= DEX_SELL_PRESSURE_THRESH;
+  const heavyBuy = buyPct >= DEX_SELL_PRESSURE_THRESH;
+  return { heavySell, heavyBuy, sellPct, buyPct, totalSells5m, totalBuys5m };
+}
+
+// Separate poll loop for DEX (don't block main refresh)
+let lastDexResult = null;
+async function dexPoll() {
+  const pairs = await fetchDexData();
+  if (pairs) {
+    lastDexResult = renderDex(pairs);
+    // Re-run conviction with updated DEX signal
+    if (lastBBResult || lastStochResult || lastDexResult) {
+      renderConviction(lastBBResult, lastStochResult, detectCluster(liveTrades), lastDexResult);
+    }
+  }
+}
+setInterval(dexPoll, DEX_POLL_MS);
+dexPoll(); // initial fetch
+
 async function refresh() {
   try {
     document.getElementById('errorMsg').textContent = '';
@@ -1898,10 +2148,10 @@ async function refresh() {
       renderFlow(trades);
       const cl = detectCluster(trades);
       renderTrades(trades);
-      renderConviction(bbR, stR, cl);
+      renderConviction(bbR, stR, cl, lastDexResult);
     } else {
       const cl = detectCluster(liveTrades);
-      renderConviction(bbR, stR, cl);
+      renderConviction(bbR, stR, cl, lastDexResult);
     }
   } catch (e) {
     document.getElementById('errorMsg').textContent = 'ERR: ' + (e.message || e);
