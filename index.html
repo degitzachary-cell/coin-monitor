@@ -654,14 +654,16 @@ body {
   padding: 2px 6px;
   border-radius: 3px;
   text-align: center;
-  background: var(--glow-red);
-  color: var(--red);
 }
+.impact-row .side.sell { background: var(--glow-red); color: var(--red); }
+.impact-row .side.buy  { background: var(--glow-green); color: var(--green); }
 .impact-row .usd { color: var(--text); font-weight: 700; }
 .impact-row .drop { text-align: right; font-weight: 700; }
-.impact-row .drop.moved { color: var(--red); }
+.impact-row .drop.moved.sell { color: var(--red); }
+.impact-row .drop.moved.buy  { color: var(--green); }
 .impact-row .drop.absorbed { color: var(--muted2); }
-.impact-row .drop.big { color: var(--red); text-shadow: 0 0 8px rgba(255,96,128,0.5); }
+.impact-row .drop.big.sell { color: var(--red); text-shadow: 0 0 8px rgba(255,96,128,0.5); }
+.impact-row .drop.big.buy  { color: var(--green); text-shadow: 0 0 8px rgba(0,255,200,0.5); }
 .impact-row .lat { text-align: right; color: var(--cyan); }
 .impact-row .tag {
   font-size: 8px;
@@ -866,7 +868,7 @@ body {
 
 <div class="card" style="margin-bottom:16px">
   <div class="card-title">
-    <span>Impact Latency <span class="tag">SELLS ≥$2.5K · 10S WINDOW</span></span>
+    <span>Impact Latency <span class="tag">BUY + SELL ≥$2.5K · 10S WINDOW</span></span>
     <span class="ws-status" id="wsStatus">● WS OFF</span>
   </div>
   <div class="impact-hero">
@@ -876,9 +878,9 @@ body {
       <div class="sub" id="impactLatSub">time to max drop</div>
     </div>
     <div class="impact-stat">
-      <div class="label">Avg Drop</div>
+      <div class="label">Avg Move</div>
       <div class="value" id="impactDrop">—</div>
-      <div class="sub" id="impactDropSub">per sell event</div>
+      <div class="sub" id="impactDropSub">per trade</div>
     </div>
     <div class="impact-stat">
       <div class="label">Absorption</div>
@@ -1495,11 +1497,11 @@ function connectTradeWS() {
           const usd   = price * size;
           // Feed the live rolling buffer (for flow/cluster/trades list)
           liveTrades.push({ price, size, side, time });
-          // Queue impact measurement for qualifying sells
-          if (side === 'Sell' && usd >= IMPACT_MIN_USD) {
+          // Queue impact measurement for any qualifying trade (both sides)
+          if (usd >= IMPACT_MIN_USD) {
             impactPending.push({
-              time, usd, price,
-              bestDrop: 0, bestLatMs: 0,
+              time, usd, price, side,
+              bestMove: 0, bestLatMs: 0,
               expireAt: time + IMPACT_WINDOW_MS,
             });
           }
@@ -1527,9 +1529,14 @@ function maybeMarkLive() {
 function updatePendingImpact(price, now) {
   for (const ev of impactPending) {
     if (now > ev.expireAt) continue;
-    const drop = ((ev.price - price) / ev.price) * 10000; // bps
-    if (drop > ev.bestDrop) {
-      ev.bestDrop = drop;
+    // For sells, measure drop (price went DOWN from ev.price)
+    // For buys, measure rise (price went UP from ev.price)
+    // Always stored as positive "move in expected direction" in bps.
+    const move = ev.side === 'Sell'
+      ? ((ev.price - price) / ev.price) * 10000
+      : ((price - ev.price) / ev.price) * 10000;
+    if (move > ev.bestMove) {
+      ev.bestMove = move;
       ev.bestLatMs = now - ev.time;
     }
   }
@@ -1540,12 +1547,13 @@ function sweepImpact() {
   const stillPending = [];
   for (const ev of impactPending) {
     if (now > ev.expireAt) {
-      const moved = ev.bestDrop >= IMPACT_MOVED_BPS;
+      const moved = ev.bestMove >= IMPACT_MOVED_BPS;
       impactEvents.unshift({
         time: ev.time,
         usd:  ev.usd,
         price: ev.price,
-        drop: ev.bestDrop,     // in bps
+        side: ev.side,          // 'Buy' or 'Sell'
+        move: ev.bestMove,      // bps in expected direction
         latMs: ev.bestLatMs,
         moved,
       });
@@ -1559,12 +1567,18 @@ function sweepImpact() {
 }
 
 function renderImpact() {
+  const sellEvents = impactEvents.filter(e => e.side === 'Sell');
+  const buyEvents  = impactEvents.filter(e => e.side === 'Buy');
+  const sellMoved  = sellEvents.filter(e => e.moved);
+  const buyMoved   = buyEvents.filter(e => e.moved);
+
+  // Overall (both sides combined) for the hero
   const moved = impactEvents.filter(e => e.moved);
   const avgLat = moved.length
     ? moved.reduce((a, e) => a + e.latMs, 0) / moved.length
     : null;
-  const avgDrop = moved.length
-    ? moved.reduce((a, e) => a + e.drop, 0) / moved.length
+  const avgMove = moved.length
+    ? moved.reduce((a, e) => a + e.move, 0) / moved.length
     : null;
   const absPct = impactEvents.length
     ? (impactEvents.filter(e => !e.moved).length / impactEvents.length) * 100
@@ -1573,32 +1587,52 @@ function renderImpact() {
   document.getElementById('impactLat').textContent =
     avgLat != null ? (avgLat / 1000).toFixed(2) + 's' : '—';
   document.getElementById('impactDrop').textContent =
-    avgDrop != null ? '-' + (avgDrop / 100).toFixed(3) + '%' : '—';
+    avgMove != null ? (avgMove / 100).toFixed(3) + '%' : '—';
   document.getElementById('impactAbs').textContent =
     absPct != null ? absPct.toFixed(0) + '%' : '—';
 
+  // Hero color: avg move colored by which side is more active
+  const sellAvg = sellMoved.length
+    ? sellMoved.reduce((a, e) => a + e.move, 0) / sellMoved.length
+    : 0;
+  const buyAvg = buyMoved.length
+    ? buyMoved.reduce((a, e) => a + e.move, 0) / buyMoved.length
+    : 0;
   const dropEl = document.getElementById('impactDrop');
-  dropEl.className = 'value ' + (avgDrop != null && avgDrop >= IMPACT_MOVED_BPS ? 'red' : '');
+  dropEl.className = 'value ' + (sellAvg >= buyAvg && sellAvg >= IMPACT_MOVED_BPS ? 'red'
+                                : buyAvg > sellAvg && buyAvg >= IMPACT_MOVED_BPS ? 'green' : '');
+
   const absEl = document.getElementById('impactAbs');
   absEl.className = 'value ' + (absPct != null && absPct >= 50 ? 'green' : '');
 
+  // Sub text shows per-side breakdown
   document.getElementById('impactLatSub').textContent =
     `${moved.length} moved / ${impactEvents.length} total`;
+  document.getElementById('impactDropSub').textContent =
+    buyEvents.length || sellEvents.length
+      ? `S ${sellMoved.length}/${sellEvents.length} · B ${buyMoved.length}/${buyEvents.length}`
+      : 'per trade';
+  document.getElementById('impactAbsSub').textContent =
+    sellEvents.length || buyEvents.length
+      ? `S ${sellEvents.length ? ((sellEvents.length - sellMoved.length) / sellEvents.length * 100).toFixed(0) : 0}% · B ${buyEvents.length ? ((buyEvents.length - buyMoved.length) / buyEvents.length * 100).toFixed(0) : 0}%`
+      : '% no price move';
 
   const listEl = document.getElementById('impactList');
   if (impactEvents.length === 0) {
-    listEl.innerHTML = `<div class="impact-empty">${wsMark && wsMark.readyState === 1 ? 'Waiting for sells ≥ $2.5K' : 'Connecting to WebSocket…'}</div>`;
+    listEl.innerHTML = `<div class="impact-empty">${wsMark && wsMark.readyState === 1 ? 'Waiting for trades ≥ $2.5K' : 'Connecting to WebSocket…'}</div>`;
     return;
   }
   listEl.innerHTML = impactEvents.slice(0, 25).map(e => {
-    const dropPct = (e.drop / 100).toFixed(3);
-    const dropCls = e.moved ? (e.drop >= 10 ? 'big' : 'moved') : 'absorbed';
+    const movePct = (e.move / 100).toFixed(3);
+    const sign = e.side === 'Sell' ? '-' : '+';
+    const moveCls = e.moved ? (e.move >= 10 ? 'big' : 'moved') : 'absorbed';
     const tag = e.moved ? (e.latMs < 1000 ? 'FAST' : 'MOVED') : 'ABSORBED';
     const tagCls = e.moved ? 'moved' : 'absorbed';
+    const sideCls = e.side === 'Sell' ? 'sell' : 'buy';
     return `<div class="impact-row">
-      <span class="side">SELL</span>
+      <span class="side ${sideCls}">${e.side === 'Sell' ? 'SELL' : 'BUY'}</span>
       <span class="usd">${fmtUSD(e.usd)}</span>
-      <span class="drop ${dropCls}">-${dropPct}%</span>
+      <span class="drop ${moveCls} ${sideCls}">${sign}${movePct}%</span>
       <span class="lat">${(e.latMs / 1000).toFixed(2)}s</span>
       <span class="tag ${tagCls}">${tag}</span>
     </div>`;
