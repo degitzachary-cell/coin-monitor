@@ -792,6 +792,11 @@ body {
     <span class="p" id="solPrice">—</span>
     <span class="c" id="solChange">—</span>
   </div>
+  <div class="sol-ticker" title="Binance FARTCOIN — cross-exchange comparison">
+    <span class="lbl">BINANCE</span>
+    <span class="p" id="bnPrice">—</span>
+    <span class="c" id="bnSpread">—</span>
+  </div>
   <span id="errorMsg"></span>
   <span class="live-pill"><span class="live-dot"></span>LIVE · <span id="countdown">3</span>s</span>
 </div>
@@ -1257,6 +1262,35 @@ function renderSol(ticker) {
   const el = document.getElementById('solChange');
   el.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
   el.className = 'c ' + (pct >= 0 ? 'up' : 'down');
+}
+
+// Binance FARTCOINUSDT — cross-exchange price + spread vs Bybit
+async function fetchBinanceFart() {
+  try {
+    const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=FARTCOINUSDT');
+    if (!r.ok) return null;
+    return await r.json();
+  } catch(_) { return null; }
+}
+
+function renderBinance(data) {
+  if (!data) return;
+  const price = parseFloat(data.lastPrice);
+  document.getElementById('bnPrice').textContent = '$' + price.toFixed(4);
+  // Show spread vs Bybit if we have both prices
+  const bybitPrice = lastMarkPrice || 0;
+  const el = document.getElementById('bnSpread');
+  if (bybitPrice > 0 && price > 0) {
+    const spreadBps = ((bybitPrice - price) / price) * 10000;
+    const sign = spreadBps >= 0 ? '+' : '';
+    el.textContent = sign + spreadBps.toFixed(1) + ' bps';
+    el.className = 'c ' + (Math.abs(spreadBps) > 5 ? (spreadBps > 0 ? 'up' : 'down') : '');
+    el.title = `Bybit vs Binance spread: ${sign}${spreadBps.toFixed(1)} bps`;
+  } else {
+    const pct = parseFloat(data.priceChangePercent);
+    el.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+    el.className = 'c ' + (pct >= 0 ? 'up' : 'down');
+  }
 }
 
 function renderBB(price, bbv) {
@@ -2116,12 +2150,14 @@ async function refresh() {
     document.getElementById('errorMsg').textContent = '';
     // Header ticker comes from WS now, but still poll SOL + klines + OB.
     // Trades come from the live WS buffer — no HTTP needed.
-    const [solTicker, klines, ob] = await Promise.all([
+    const [solTicker, bnData, klines, ob] = await Promise.all([
       fetchTicker('SOLUSDT'),
+      fetchBinanceFart(),
       fetchKlines('1', 200),
       fetchOrderbook(50),
     ]);
     renderSol(solTicker);
+    renderBinance(bnData);
     const closes = klines.map(k => k.close);
     const bbv = bb(closes, 20, 2);
     lastBB = bbv;
