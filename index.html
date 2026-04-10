@@ -1451,7 +1451,7 @@ const IMPACT_MOVED_BPS  = 2;       // ≥0.02% = "moved", else absorbed
 // ── SOUND ALERTS ────────────────────────────────────────────
 const SOUND_SMALL_USD = 2500;
 const SOUND_BIG_USD   = 10000;
-const SOUND_COOLDOWN_MS = 150;  // prevent audio spam on burst prints
+const SOUND_COOLDOWN_MS = 800;  // prevent overlap — covers full two-tone duration
 let soundEnabled = false;
 let audioCtx = null;
 let lastSoundAt = 0;
@@ -1465,39 +1465,50 @@ function ensureAudio() {
   return audioCtx;
 }
 
-// Play a short tone. freq=Hz, dur=seconds, type=wave shape, vol=0-1
-function playTone(freq, dur, type = 'sine', vol = 0.15) {
+// Play a tone. freq=Hz, dur=seconds, type=wave shape, vol=0-1
+function playTone(freq, dur, type = 'sine', vol = 0.5) {
   const ctx = ensureAudio();
   if (!ctx) return;
-  const now = ctx.currentTime;
+  const t = ctx.currentTime;
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = type;
-  osc.frequency.setValueAtTime(freq, now);
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(vol, now + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  osc.frequency.value = freq;
+  // Start at full volume immediately — no silent ramp-from-zero
+  gain.gain.value = vol;
+  // Fade out over the last 40% of the tone to avoid click
+  gain.gain.setValueAtTime(vol, t + dur * 0.6);
+  gain.gain.linearRampToValueAtTime(0.001, t + dur);
   osc.connect(gain).connect(ctx.destination);
-  osc.start(now);
-  osc.stop(now + dur + 0.02);
+  osc.start(t);
+  osc.stop(t + dur + 0.05);
 }
 
 // Four distinct alert sounds
-function alertSmallSell() { playTone(440, 0.18, 'triangle', 0.4); }    // low soft blip
-function alertBigSell()   {                                             // two-tone urgent descend
-  playTone(680, 0.15, 'square', 0.5);
-  setTimeout(() => playTone(340, 0.25, 'square', 0.5), 150);
+function alertSmallSell() {                                             // single low ping
+  playTone(520, 0.25, 'triangle', 0.6);
 }
-function alertSmallBuy()  { playTone(880, 0.18, 'triangle', 0.4); }    // high soft blip
+function alertBigSell()   {                                             // two-tone urgent descend
+  playTone(800, 0.2, 'square', 0.7);
+  setTimeout(() => playTone(400, 0.35, 'square', 0.7), 200);
+}
+function alertSmallBuy()  {                                             // single high ping
+  playTone(1040, 0.25, 'triangle', 0.6);
+}
 function alertBigBuy()    {                                             // two-tone urgent ascend
-  playTone(660, 0.15, 'square', 0.5);
-  setTimeout(() => playTone(1100, 0.25, 'square', 0.5), 150);
+  playTone(600, 0.2, 'square', 0.7);
+  setTimeout(() => playTone(1200, 0.35, 'square', 0.7), 200);
 }
 
 function fireTradeSound(side, usd) {
   if (!soundEnabled) return;
   const now = Date.now();
   if (now - lastSoundAt < SOUND_COOLDOWN_MS) return;
+  // Resume AudioContext if browser suspended it (tab backgrounded etc.)
+  if (audioCtx && audioCtx.state === 'suspended') {
+    audioCtx.resume();
+    return; // skip this one — next trade will play clean
+  }
   lastSoundAt = now;
   if (side === 'Sell') {
     if (usd >= SOUND_BIG_USD) alertBigSell();
