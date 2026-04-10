@@ -1535,9 +1535,31 @@ function flushSoundAgg() {
   }
 }
 
+// Flush aggregated fills into impact measurement queue
+function flushImpactAgg() {
+  impactAgg.timer = null;
+  const now = Date.now();
+  for (const side of ['Sell', 'Buy']) {
+    const usd = impactAgg[side].usd;
+    const vwapNum = impactAgg[side].vwapNum;
+    impactAgg[side].usd = 0;
+    impactAgg[side].vwapNum = 0;
+    if (usd < IMPACT_MIN_USD) continue;
+    const price = vwapNum / usd;  // VWAP of the aggregated fills
+    impactPending.push({
+      time: now, usd, price, side,
+      bestMove: 0, bestLatMs: 0,
+      expireAt: now + IMPACT_WINDOW_MS,
+    });
+  }
+}
+
 let impactEvents = [];    // finalized: {time, usd, price, drop, latMs, moved}
 let impactPending = [];   // in-flight: {time, usd, price, bestDrop, bestLatMs, expireAt}
 let lastMarkPrice = null; // from ticker WS
+// Rolling aggregation for impact (same idea as sound agg — individual fills are tiny)
+const IMPACT_AGG_WINDOW_MS = 500;
+let impactAgg = { Buy: { usd: 0, vwapNum: 0 }, Sell: { usd: 0, vwapNum: 0 }, timer: null };
 let liveTicker = null;    // latest ticker snapshot from WS (lastPrice, price24hPcnt, etc.)
 let liveTrades = [];      // rolling buffer of WS trades: {price,size,side,time}
 let lastBB = null;        // cached BB object from last klines refresh
@@ -1602,15 +1624,13 @@ function connectTradeWS() {
           const usd   = price * size;
           // Feed the live rolling buffer (for flow/cluster/trades list)
           liveTrades.push({ price, size, side, time });
-          // Fire alert sound if enabled (separate thresholds per side)
+          // Fire alert sound if enabled
           fireTradeSound(side, usd);
-          // Queue impact measurement for any qualifying trade (both sides)
-          if (usd >= IMPACT_MIN_USD) {
-            impactPending.push({
-              time, usd, price, side,
-              bestMove: 0, bestLatMs: 0,
-              expireAt: time + IMPACT_WINDOW_MS,
-            });
+          // Accumulate fills for impact measurement (individual fills are tiny)
+          impactAgg[side].usd += usd;
+          impactAgg[side].vwapNum += usd * price;  // for VWAP
+          if (!impactAgg.timer) {
+            impactAgg.timer = setTimeout(flushImpactAgg, IMPACT_AGG_WINDOW_MS);
           }
         }
         // Trim old trades
