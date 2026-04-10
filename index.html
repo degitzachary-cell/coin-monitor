@@ -1267,7 +1267,7 @@ function renderSol(ticker) {
 // Binance FARTCOINUSDT — cross-exchange price + spread vs Bybit
 async function fetchBinanceFart() {
   try {
-    const r = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=FARTCOINUSDT');
+    const r = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=FARTCOINUSDT');
     if (!r.ok) return null;
     return await r.json();
   } catch(_) { return null; }
