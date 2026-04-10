@@ -1451,10 +1451,13 @@ const IMPACT_MOVED_BPS  = 2;       // ≥0.02% = "moved", else absorbed
 // ── SOUND ALERTS ────────────────────────────────────────────
 const SOUND_SMALL_USD = 2500;
 const SOUND_BIG_USD   = 10000;
-const SOUND_COOLDOWN_MS = 800;  // prevent overlap — covers full two-tone duration
+const SOUND_AGG_WINDOW_MS = 500;  // aggregate fills within this window
+const SOUND_COOLDOWN_MS = 1000;   // prevent overlap after an alert fires
 let soundEnabled = false;
 let audioCtx = null;
 let lastSoundAt = 0;
+// Rolling aggregation buckets: accumulate USD per side within AGG window
+let soundAgg = { Buy: 0, Sell: 0, timer: null };
 
 function ensureAudio() {
   if (!audioCtx) {
@@ -1500,22 +1503,35 @@ function alertBigBuy()    {                                             // two-t
   setTimeout(() => playTone(1200, 0.35, 'square', 0.7), 200);
 }
 
+// Accumulate fill USD into a rolling bucket per side.
+// When the 500ms window closes, check totals and fire the appropriate alert.
 function fireTradeSound(side, usd) {
   if (!soundEnabled) return;
-  const now = Date.now();
-  if (now - lastSoundAt < SOUND_COOLDOWN_MS) return;
-  // Resume AudioContext if browser suspended it (tab backgrounded etc.)
-  if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
-    return; // skip this one — next trade will play clean
+  soundAgg[side] += usd;
+  if (!soundAgg.timer) {
+    soundAgg.timer = setTimeout(flushSoundAgg, SOUND_AGG_WINDOW_MS);
   }
-  lastSoundAt = now;
-  if (side === 'Sell') {
-    if (usd >= SOUND_BIG_USD) alertBigSell();
-    else if (usd >= SOUND_SMALL_USD) alertSmallSell();
-  } else {
-    if (usd >= SOUND_BIG_USD) alertBigBuy();
-    else if (usd >= SOUND_SMALL_USD) alertSmallBuy();
+}
+
+function flushSoundAgg() {
+  soundAgg.timer = null;
+  const now = Date.now();
+  // Resume AudioContext if browser suspended it
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  // Check each side independently — both can fire in same window
+  for (const side of ['Sell', 'Buy']) {
+    const total = soundAgg[side];
+    soundAgg[side] = 0;
+    if (total < SOUND_SMALL_USD) continue;
+    if (now - lastSoundAt < SOUND_COOLDOWN_MS) continue;
+    lastSoundAt = now;
+    if (side === 'Sell') {
+      if (total >= SOUND_BIG_USD) alertBigSell();
+      else alertSmallSell();
+    } else {
+      if (total >= SOUND_BIG_USD) alertBigBuy();
+      else alertSmallBuy();
+    }
   }
 }
 
