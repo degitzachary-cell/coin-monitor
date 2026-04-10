@@ -931,6 +931,37 @@ const HUGE_TRADE_USD  = 10000;   // gold highlight
 const CLUSTER_WINDOW_MS = 30000; // 30s
 const CLUSTER_MIN = 3;           // N sells to count as cluster
 const FLOW_WINDOW_MS = 60000;    // 60s rolling flow
+const TRADE_GROUP_MS = 500;      // group fills within this window into one "trade"
+
+// Aggregate raw fills (liveTrades) into grouped trades.
+// Consecutive fills on the same side within TRADE_GROUP_MS are merged.
+function groupTrades(raw) {
+  if (!raw.length) return [];
+  const groups = [];
+  let g = { side: raw[0].side, time: raw[0].time, usd: 0, vwapNum: 0, size: 0 };
+  for (const t of raw) {
+    const usd = t.price * t.size;
+    if (t.side === g.side && t.time - g.time < TRADE_GROUP_MS) {
+      // Same side, within window — merge
+      g.usd += usd;
+      g.vwapNum += usd * t.price;
+      g.size += t.size;
+      g.time = Math.max(g.time, t.time);  // latest timestamp
+    } else {
+      // Different side or gap — finalize previous group, start new
+      if (g.usd > 0) {
+        g.price = g.vwapNum / g.usd;  // VWAP
+        groups.push(g);
+      }
+      g = { side: t.side, time: t.time, usd, vwapNum: usd * t.price, size: t.size };
+    }
+  }
+  if (g.usd > 0) {
+    g.price = g.vwapNum / g.usd;
+    groups.push(g);
+  }
+  return groups;
+}
 
 document.getElementById('cfgSymbol').value = SYMBOL;
 
@@ -1246,7 +1277,7 @@ function renderOB(ob) {
 
 function renderFlow(trades) {
   const now = Date.now();
-  const recent = trades.filter(t => now - t.time < FLOW_WINDOW_MS && t.price * t.size >= 500);
+  const recent = trades.filter(t => now - t.time < FLOW_WINDOW_MS);
   let buy = 0, sell = 0;
   recent.forEach(t => {
     const usd = t.price * t.size;
@@ -1270,16 +1301,17 @@ function renderFlow(trades) {
 
 function detectCluster(trades) {
   const now = Date.now();
-  const bigRecent = trades.filter(t =>
-    t.price * t.size >= LARGE_TRADE_USD &&
+  const grouped = groupTrades(trades);
+  const bigRecent = grouped.filter(t =>
+    t.usd >= LARGE_TRADE_USD &&
     now - t.time < CLUSTER_WINDOW_MS
   );
   const sells = bigRecent.filter(t => t.side === 'Sell');
   const buys  = bigRecent.filter(t => t.side === 'Buy');
   const sellCount = sells.length;
   const buyCount  = buys.length;
-  const sellUSD = sells.reduce((a, t) => a + t.price * t.size, 0);
-  const buyUSD  = buys.reduce((a, t) => a + t.price * t.size, 0);
+  const sellUSD = sells.reduce((a, t) => a + t.usd, 0);
+  const buyUSD  = buys.reduce((a, t) => a + t.usd, 0);
   const sellCluster = sellCount >= CLUSTER_MIN;
   const buyCluster  = buyCount  >= CLUSTER_MIN;
 
@@ -1313,8 +1345,8 @@ function detectCluster(trades) {
 }
 
 function renderTrades(trades) {
-  const large = trades
-    .map(t => ({ ...t, usd: t.price * t.size }))
+  const grouped = groupTrades(trades);
+  const large = grouped
     .filter(t => t.usd >= LARGE_TRADE_USD)
     .sort((a, b) => b.time - a.time)
     .slice(0, 40);
