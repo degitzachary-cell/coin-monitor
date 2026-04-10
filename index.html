@@ -581,6 +581,15 @@ body {
 }
 .trade-side.buy { background: var(--glow-green); color: var(--green); }
 .trade-side.sell { background: var(--glow-red); color: var(--red); }
+.trade-ex {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  padding: 2px 5px;
+  border-radius: 3px;
+}
+.trade-ex.bybit { background: rgba(255,160,0,0.12); color: #ffa000; }
+.trade-ex.binance { background: rgba(243,186,47,0.12); color: #f3ba2f; }
 .trade-price { color: var(--text); font-weight: 700; }
 .trade-size { color: var(--text2); }
 .trade-size.big { color: var(--yellow); }
@@ -1017,7 +1026,7 @@ body {
 </div>
 
 <div class="card" style="margin-bottom:16px">
-  <div class="card-title">Recent Large Trades <span class="tag">MIN $2.5K</span></div>
+  <div class="card-title">Recent Large Trades <span class="tag">BYBIT + BINANCE · MIN $2.5K</span></div>
   <div class="trades-list" id="tradesList">
     <div class="trade-empty">Loading…</div>
   </div>
@@ -1045,26 +1054,27 @@ const DEX_SELL_PRESSURE_THRESH = 60; // % sell txns to flag as heavy sell pressu
 let lastDexData = null;          // cached DEX response
 
 // Aggregate raw fills (liveTrades) into grouped trades.
-// Consecutive fills on the same side within TRADE_GROUP_MS are merged.
+// Consecutive fills on the same side + same exchange within TRADE_GROUP_MS are merged.
 function groupTrades(raw) {
   if (!raw.length) return [];
   const groups = [];
-  let g = { side: raw[0].side, time: raw[0].time, usd: 0, vwapNum: 0, size: 0 };
+  let g = { side: raw[0].side, ex: raw[0].ex || 'BB', time: raw[0].time, usd: 0, vwapNum: 0, size: 0 };
   for (const t of raw) {
     const usd = t.price * t.size;
-    if (t.side === g.side && t.time - g.time < TRADE_GROUP_MS) {
-      // Same side, within window — merge
+    const ex = t.ex || 'BB';
+    if (t.side === g.side && ex === g.ex && t.time - g.time < TRADE_GROUP_MS) {
+      // Same side + exchange, within window — merge
       g.usd += usd;
       g.vwapNum += usd * t.price;
       g.size += t.size;
       g.time = Math.max(g.time, t.time);  // latest timestamp
     } else {
-      // Different side or gap — finalize previous group, start new
+      // Different side/exchange or gap — finalize previous group, start new
       if (g.usd > 0) {
         g.price = g.vwapNum / g.usd;  // VWAP
         groups.push(g);
       }
-      g = { side: t.side, time: t.time, usd, vwapNum: usd * t.price, size: t.size };
+      g = { side: t.side, ex, time: t.time, usd, vwapNum: usd * t.price, size: t.size };
     }
   }
   if (g.usd > 0) {
@@ -1501,7 +1511,10 @@ function renderTrades(trades) {
     const sideCls = t.side === 'Buy' ? 'buy' : 'sell';
     const sizeCls = t.usd >= HUGE_TRADE_USD ? 'huge' : (t.usd >= LARGE_TRADE_USD * 2 ? 'big' : '');
     const inCluster = t.side === 'Sell' && (now - t.time) < CLUSTER_WINDOW_MS;
+    const exTag = t.ex === 'BN' ? 'BN' : 'BB';
+    const exCls = t.ex === 'BN' ? 'binance' : 'bybit';
     return `<div class="trade-row ${inCluster ? 'cluster' : ''}">
+      <span class="trade-ex ${exCls}">${exTag}</span>
       <span class="trade-side ${sideCls}">${t.side === 'Buy' ? 'BUY' : 'SELL'}</span>
       <span class="trade-price">${fmtPrice(t.price)}</span>
       <span class="trade-size ${sizeCls}">${fmtUSD(t.usd)}</span>
@@ -1759,8 +1772,8 @@ let impactAgg = { Buy: { usd: 0, vwapNum: 0 }, Sell: { usd: 0, vwapNum: 0 }, tim
 let liveTicker = null;    // latest ticker snapshot from WS (lastPrice, price24hPcnt, etc.)
 let liveTrades = [];      // rolling buffer of WS trades: {price,size,side,time}
 let lastBB = null;        // cached BB object from last klines refresh
-let wsMark = null, wsTrade = null;
-let wsMarkRetry = 0, wsTradeRetry = 0;
+let wsMark = null, wsTrade = null, wsBnTrade = null;
+let wsMarkRetry = 0, wsTradeRetry = 0, wsBnTradeRetry = 0;
 
 function wsSetStatus(on) {
   const el = document.getElementById('wsStatus');
@@ -1819,7 +1832,7 @@ function connectTradeWS() {
           const time  = parseInt(t.T);
           const usd   = price * size;
           // Feed the live rolling buffer (for flow/cluster/trades list)
-          liveTrades.push({ price, size, side, time });
+          liveTrades.push({ price, size, side, time, ex: 'BB' });
           // Fire alert sound if enabled
           fireTradeSound(side, usd);
           // Accumulate fills for impact measurement (individual fills are tiny)
@@ -1841,6 +1854,39 @@ function connectTradeWS() {
     setTimeout(connectTradeWS, Math.min(15000, 1000 * wsTradeRetry));
   };
   wsTrade.onerror = () => { try { wsTrade.close(); } catch(_) {} };
+}
+
+// ── BINANCE FUTURES TRADE WS ──────────────────────────────
+function connectBnTradeWS() {
+  try { wsBnTrade && wsBnTrade.close(); } catch(_) {}
+  const sym = SYMBOL.toLowerCase();   // binance wants lowercase
+  wsBnTrade = new WebSocket(`wss://fstream.binance.com/ws/${sym}@aggTrade`);
+  wsBnTrade.onopen = () => { wsBnTradeRetry = 0; };
+  wsBnTrade.onmessage = (ev) => {
+    try {
+      const t = JSON.parse(ev.data);
+      // Binance aggTrade: {p: price, q: qty, m: isBuyerMaker, T: timestamp}
+      const price = parseFloat(t.p);
+      const size  = parseFloat(t.q);
+      const side  = t.m ? 'Sell' : 'Buy';   // m=true → maker is buyer → trade is a sell
+      const time  = t.T;
+      const usd   = price * size;
+      liveTrades.push({ price, size, side, time, ex: 'BN' });
+      // Fire sound for Binance trades too
+      fireTradeSound(side, usd);
+      // Accumulate for impact (Binance fills are also small)
+      impactAgg[side].usd += usd;
+      impactAgg[side].vwapNum += usd * price;
+      if (!impactAgg.timer) {
+        impactAgg.timer = setTimeout(flushImpactAgg, IMPACT_AGG_WINDOW_MS);
+      }
+    } catch(_) {}
+  };
+  wsBnTrade.onclose = () => {
+    wsBnTradeRetry++;
+    setTimeout(connectBnTradeWS, Math.min(15000, 1000 * wsBnTradeRetry));
+  };
+  wsBnTrade.onerror = () => { try { wsBnTrade.close(); } catch(_) {} };
 }
 
 function maybeMarkLive() {
@@ -1967,8 +2013,10 @@ function resetImpactWS() {
   impactPending = [];
   try { wsMark && wsMark.close(); } catch(_) {}
   try { wsTrade && wsTrade.close(); } catch(_) {}
+  try { wsBnTrade && wsBnTrade.close(); } catch(_) {}
   connectMarkWS();
   connectTradeWS();
+  connectBnTradeWS();
   renderImpact();
 }
 
@@ -2205,6 +2253,7 @@ document.getElementById('hLabel').textContent =
   SYMBOL.replace('USDT', ' / USDT') + ' · PERP';
 connectMarkWS();
 connectTradeWS();
+connectBnTradeWS();
 refresh();
 
 // Sound toggle wiring (persist preference via localStorage)
