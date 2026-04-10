@@ -811,7 +811,7 @@ body {
   </div>
 
   <div class="card">
-    <div class="card-title">Stoch RSI <span class="tag">1M · 14/14/3/3</span></div>
+    <div class="card-title">Stoch RSI <span class="tag">1M · 5/5/3/3</span></div>
     <div class="metric-hero"><span id="stochK">—</span><span style="color:var(--muted);font-size:20px"> / </span><span id="stochD" style="color:var(--text2)">—</span></div>
     <div class="metric-sub" id="stochSub">K / D</div>
     <div class="metric-bar-track grad-stoch">
@@ -1057,7 +1057,7 @@ function rsi(closes, period = 14) {
   }
   return out;
 }
-function stochRsi(closes, rsiLen = 14, stochLen = 14, kSmooth = 3, dSmooth = 3) {
+function stochRsi(closes, rsiLen = 5, stochLen = 5, kSmooth = 3, dSmooth = 3) {
   const r = rsi(closes, rsiLen);
   const stoch = new Array(r.length).fill(null);
   for (let i = 0; i < r.length; i++) {
@@ -1483,15 +1483,15 @@ function playTone(freq, dur, type = 'sine', vol = 0.15) {
 }
 
 // Four distinct alert sounds
-function alertSmallSell() { playTone(440, 0.08, 'triangle', 0.12); }   // low soft blip
+function alertSmallSell() { playTone(440, 0.18, 'triangle', 0.4); }    // low soft blip
 function alertBigSell()   {                                             // two-tone urgent descend
-  playTone(680, 0.09, 'square', 0.18);
-  setTimeout(() => playTone(340, 0.14, 'square', 0.2), 90);
+  playTone(680, 0.15, 'square', 0.5);
+  setTimeout(() => playTone(340, 0.25, 'square', 0.5), 150);
 }
-function alertSmallBuy()  { playTone(880, 0.08, 'triangle', 0.12); }   // high soft blip
+function alertSmallBuy()  { playTone(880, 0.18, 'triangle', 0.4); }    // high soft blip
 function alertBigBuy()    {                                             // two-tone urgent ascend
-  playTone(660, 0.09, 'square', 0.18);
-  setTimeout(() => playTone(1100, 0.14, 'square', 0.2), 90);
+  playTone(660, 0.15, 'square', 0.5);
+  setTimeout(() => playTone(1100, 0.25, 'square', 0.5), 150);
 }
 
 function fireTradeSound(side, usd) {
@@ -1860,8 +1860,8 @@ refresh();
     if (next) {
       ensureAudio();
       // Quick confirm tone so user hears it's active
-      playTone(660, 0.08, 'triangle', 0.1);
-      setTimeout(() => playTone(880, 0.1, 'triangle', 0.1), 90);
+      playTone(660, 0.15, 'triangle', 0.4);
+      setTimeout(() => playTone(880, 0.2, 'triangle', 0.4), 150);
     }
   });
 })();
