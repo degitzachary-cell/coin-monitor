@@ -691,6 +691,21 @@ body {
 .ws-status.on { color: var(--green); }
 .ws-status.off { color: var(--red); }
 
+.sound-toggle {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.sound-toggle:hover { border-color: rgba(255,255,255,0.3); color: #fff; }
+.sound-toggle.on { border-color: var(--green); color: var(--green); background: var(--glow-green); }
+
 #errorMsg {
   color: var(--red);
   font-size: 11px;
@@ -869,7 +884,10 @@ body {
 <div class="card" style="margin-bottom:16px">
   <div class="card-title">
     <span>Impact Latency <span class="tag">BUY + SELL ≥$2.5K · 10S WINDOW</span></span>
-    <span class="ws-status" id="wsStatus">● WS OFF</span>
+    <span style="display:flex;gap:10px;align-items:center">
+      <button id="soundToggle" class="sound-toggle" title="Toggle trade alert sounds">🔔 SOUND OFF</button>
+      <span class="ws-status" id="wsStatus">● WS OFF</span>
+    </span>
   </div>
   <div class="impact-hero">
     <div class="impact-stat">
@@ -1430,6 +1448,66 @@ const IMPACT_MIN_USD    = 2500;    // qualifying sell size
 const IMPACT_HISTORY    = 50;      // keep last N events
 const IMPACT_MOVED_BPS  = 2;       // ≥0.02% = "moved", else absorbed
 
+// ── SOUND ALERTS ────────────────────────────────────────────
+const SOUND_SMALL_USD = 2500;
+const SOUND_BIG_USD   = 10000;
+const SOUND_COOLDOWN_MS = 150;  // prevent audio spam on burst prints
+let soundEnabled = false;
+let audioCtx = null;
+let lastSoundAt = 0;
+
+function ensureAudio() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(_) { return null; }
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+// Play a short tone. freq=Hz, dur=seconds, type=wave shape, vol=0-1
+function playTone(freq, dur, type = 'sine', vol = 0.15) {
+  const ctx = ensureAudio();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, now);
+  gain.gain.setValueAtTime(0, now);
+  gain.gain.linearRampToValueAtTime(vol, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now + dur + 0.02);
+}
+
+// Four distinct alert sounds
+function alertSmallSell() { playTone(440, 0.08, 'triangle', 0.12); }   // low soft blip
+function alertBigSell()   {                                             // two-tone urgent descend
+  playTone(680, 0.09, 'square', 0.18);
+  setTimeout(() => playTone(340, 0.14, 'square', 0.2), 90);
+}
+function alertSmallBuy()  { playTone(880, 0.08, 'triangle', 0.12); }   // high soft blip
+function alertBigBuy()    {                                             // two-tone urgent ascend
+  playTone(660, 0.09, 'square', 0.18);
+  setTimeout(() => playTone(1100, 0.14, 'square', 0.2), 90);
+}
+
+function fireTradeSound(side, usd) {
+  if (!soundEnabled) return;
+  const now = Date.now();
+  if (now - lastSoundAt < SOUND_COOLDOWN_MS) return;
+  lastSoundAt = now;
+  if (side === 'Sell') {
+    if (usd >= SOUND_BIG_USD) alertBigSell();
+    else if (usd >= SOUND_SMALL_USD) alertSmallSell();
+  } else {
+    if (usd >= SOUND_BIG_USD) alertBigBuy();
+    else if (usd >= SOUND_SMALL_USD) alertSmallBuy();
+  }
+}
+
 let impactEvents = [];    // finalized: {time, usd, price, drop, latMs, moved}
 let impactPending = [];   // in-flight: {time, usd, price, bestDrop, bestLatMs, expireAt}
 let lastMarkPrice = null; // from ticker WS
@@ -1497,6 +1575,8 @@ function connectTradeWS() {
           const usd   = price * size;
           // Feed the live rolling buffer (for flow/cluster/trades list)
           liveTrades.push({ price, size, side, time });
+          // Fire alert sound if enabled (separate thresholds per side)
+          fireTradeSound(side, usd);
           // Queue impact measurement for any qualifying trade (both sides)
           if (usd >= IMPACT_MIN_USD) {
             impactPending.push({
@@ -1761,6 +1841,30 @@ document.getElementById('hLabel').textContent =
 connectMarkWS();
 connectTradeWS();
 refresh();
+
+// Sound toggle wiring (persist preference via localStorage)
+(function initSoundToggle() {
+  const btn = document.getElementById('soundToggle');
+  if (!btn) return;
+  const saved = localStorage.getItem('fc_sound_on') === '1';
+  const apply = (on) => {
+    soundEnabled = on;
+    btn.classList.toggle('on', on);
+    btn.textContent = on ? '🔔 SOUND ON' : '🔔 SOUND OFF';
+    localStorage.setItem('fc_sound_on', on ? '1' : '0');
+  };
+  apply(saved);
+  btn.addEventListener('click', () => {
+    const next = !soundEnabled;
+    apply(next);
+    if (next) {
+      ensureAudio();
+      // Quick confirm tone so user hears it's active
+      playTone(660, 0.08, 'triangle', 0.1);
+      setTimeout(() => playTone(880, 0.1, 'triangle', 0.1), 90);
+    }
+  });
+})();
 </script>
 </body>
 </html>
